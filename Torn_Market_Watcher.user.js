@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TornPDA Universal Market Watcher
-// @namespace    leviath4n.torn.marketwatch.v6.5.1
-// @version      6.5.1
+// @namespace    leviath4n.torn.marketwatch.v6.5.2
+// @version      6.5.2
 // @description  Multi-item Torn market watcher with server-gated membership, stored user API scanning, watchlists, debug menu, tiers, sound, vibration, persistent popups, and armor/quality filters
 // @author       Leviath4n
 
@@ -1948,6 +1948,74 @@ async function requestDesktopNotificationPermission() {
   }
 }
 
+function getDesktopNotificationPermissionState() {
+  return canUseDesktopNotifications() ? Notification.permission : 'unsupported';
+}
+
+function syncDesktopNotificationControls(notifLabel, notifBtn) {
+  const state = getDesktopNotificationPermissionState();
+  notifLabel.textContent = `Notification permission: ${state}`;
+
+  if (state === 'granted') {
+    notifBtn.textContent = 'Disable notifications';
+    notifBtn.title = 'Disables script notifications. Browser permission must still be removed manually in site settings.';
+    return;
+  }
+
+  if (state === 'denied') {
+    notifBtn.textContent = 'Reset in browser';
+    notifBtn.title = 'Notification permission is blocked. Reset it manually in browser site settings.';
+    return;
+  }
+
+  if (state === 'unsupported') {
+    notifBtn.textContent = 'Unsupported';
+    notifBtn.title = 'Desktop notifications are not supported in this browser.';
+    return;
+  }
+
+  notifBtn.textContent = 'Enable notifications';
+  notifBtn.title = 'Request desktop notification permission.';
+}
+
+async function handleDesktopNotificationButtonClick(notifLabel, notifBtn) {
+  const state = getDesktopNotificationPermissionState();
+
+  if (state === 'unsupported') {
+    syncDesktopNotificationControls(notifLabel, notifBtn);
+    alert('Desktop notifications are not supported in this browser.');
+    return;
+  }
+
+  if (state === 'granted') {
+    const next = getSettings();
+    next.desktopNotificationsEnabled = false;
+    saveSettings(next);
+    syncDesktopNotificationControls(notifLabel, notifBtn);
+    alert('Desktop notifications were disabled in the script. Browser notification permission cannot be revoked by a website or userscript, so if you also want the permission removed you will need to clear it manually in your browser site settings for torn.com.');
+    return;
+  }
+
+  if (state === 'denied') {
+    const next = getSettings();
+    next.desktopNotificationsEnabled = false;
+    saveSettings(next);
+    syncDesktopNotificationControls(notifLabel, notifBtn);
+    alert('Notification permission is currently blocked by the browser. Websites cannot remove or reset that permission themselves, so you will need to change it manually in your browser site settings for torn.com and then click this button again.');
+    return;
+  }
+
+  const result = await requestDesktopNotificationPermission();
+
+  if (result === 'granted') {
+    const next = getSettings();
+    next.desktopNotificationsEnabled = true;
+    saveSettings(next);
+  }
+
+  syncDesktopNotificationControls(notifLabel, notifBtn);
+}
+
 function showDesktopNotification(title, body, url) {
   const settings = getSettings();
   if (!settings.desktopNotificationsEnabled) return;
@@ -2628,7 +2696,7 @@ function soundForTier(tier) {
       topBar.style.gap = '8px';
 
       const title = document.createElement('div');
-      title.textContent = 'Watcher Debug | v6.5.1';
+      title.textContent = 'Watcher Debug | v6.5.2';
       title.style.fontWeight = '700';
 
       const btn = document.createElement('button');
@@ -2679,7 +2747,7 @@ function soundForTier(tier) {
     topBar.style.paddingRight = '4px';
 
     const title = document.createElement('div');
-    title.textContent = 'Watcher Debug | v6.5.1';
+    title.textContent = 'Watcher Debug | v6.5.2';
     title.style.fontWeight = '700';
 
     const topBtns = document.createElement('div');
@@ -3094,13 +3162,8 @@ function soundForTier(tier) {
       notifRow.style.marginBottom = '8px';
 
       const notifLabel = document.createElement('span');
-      notifLabel.textContent = `Notification permission: ${
-        canUseDesktopNotifications() ? Notification.permission : 'unsupported'
-      }`;
-
       const notifBtn = document.createElement('button');
       notifBtn.type = 'button';
-      notifBtn.textContent = 'Enable notifications';
       notifBtn.style.background = '#111';
       notifBtn.style.color = '#fff';
       notifBtn.style.border = '1px solid rgba(255,255,255,0.14)';
@@ -3108,9 +3171,10 @@ function soundForTier(tier) {
       notifBtn.style.padding = '4px 8px';
       notifBtn.style.cursor = 'pointer';
 
+      syncDesktopNotificationControls(notifLabel, notifBtn);
+
       notifBtn.addEventListener('click', async () => {
-        const result = await requestDesktopNotificationPermission();
-        notifLabel.textContent = `Notification permission: ${result}`;
+        await handleDesktopNotificationButtonClick(notifLabel, notifBtn);
       });
 
       notifRow.appendChild(notifLabel);
