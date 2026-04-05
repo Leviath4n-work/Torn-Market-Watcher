@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         TornPDA Universal Market Watcher
-// @namespace    leviath4n.torn.marketwatch.v6.5.5
+// @namespace    leviath4n.torn.marketwatch.v6.5.4
 // @version      6.5.5
 // @description  Multi-item Torn market watcher with server-gated membership, stored user API scanning, watchlists, debug menu, tiers, sound, vibration, persistent popups, and armor/quality filters
 // @author       Leviath4n
@@ -18,6 +18,15 @@
 
 (function () {
   'use strict';
+
+  const SCRIPT_VERSION = '6.5.5';
+
+  /*
+    6.5.5 changes
+    - Compact watchlist cards so fields are less wide
+    - Responsive watchlist grid now fits more cards side by side
+    - Debug header version now reads from SCRIPT_VERSION
+  */
 
   console.log('[UMW] Script booting on', window.location.href);
   window.addEventListener('error', (e) => {
@@ -1039,16 +1048,6 @@ federal_jail_key 919
     reason: ''
   };
 
-  function getScriptVersion() {
-  try {
-    const meta = document.querySelector('script')?.textContent || '';
-    const match = meta.match(/@version\s+([^\s]+)/);
-    return match ? match[1] : 'unknown';
-  } catch {
-    return 'unknown';
-  }
-}
-  
   function getJson(key, fallback) {
     try {
       const raw = localStorage.getItem(key);
@@ -2378,7 +2377,10 @@ function soundForTier(tier) {
     input.value = value ?? '';
     input.step = step;
     if (min !== '') input.min = min;
-    input.style.width = '82px';
+    input.style.width = '72px';
+    input.style.maxWidth = '72px';
+    input.style.flex = '0 0 auto';
+    input.style.boxSizing = 'border-box';
     input.style.background = '#111';
     input.style.color = '#fff';
     input.style.border = '1px solid rgba(255,255,255,0.14)';
@@ -2497,8 +2499,10 @@ function soundForTier(tier) {
   function renderWatchItemCard(container, itemRule, index, marketValues, scanStatusMap) {
     const card = document.createElement('div');
     card.style.border = '1px solid rgba(255,255,255,0.10)';
-    card.style.borderRadius = '10px';
-    card.style.padding = '8px';
+    card.style.borderRadius = '8px';
+    card.style.padding = '6px 8px';
+    card.style.fontSize = '10px';
+    card.style.lineHeight = '1.15';
     card.style.marginBottom = '0';
     card.style.background = 'rgba(255,255,255,0.03)';
     card.style.minWidth = '0';
@@ -2509,12 +2513,14 @@ function soundForTier(tier) {
     top.style.display = 'flex';
     top.style.alignItems = 'center';
     top.style.justifyContent = 'space-between';
-    top.style.gap = '8px';
-    top.style.marginBottom = '6px';
+    top.style.gap = '6px';
+    top.style.marginBottom = '4px';
 
     const name = document.createElement('div');
     name.textContent = `${itemRule.displayName} (#${itemRule.itemId})`;
     name.style.fontWeight = '700';
+    name.style.fontSize = '10px';
+    name.style.minWidth = '0';
 
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';
@@ -2523,7 +2529,7 @@ function soundForTier(tier) {
     removeBtn.style.color = '#fff';
     removeBtn.style.border = '1px solid rgba(255,255,255,0.14)';
     removeBtn.style.borderRadius = '6px';
-    removeBtn.style.padding = '4px 8px';
+    removeBtn.style.padding = '3px 7px';
     removeBtn.style.cursor = 'pointer';
     removeBtn.addEventListener('click', () => {
       const list = getWatchlist();
@@ -2553,8 +2559,8 @@ function soundForTier(tier) {
     multWrap.style.display = 'flex';
     multWrap.style.alignItems = 'center';
     multWrap.style.justifyContent = 'space-between';
-    multWrap.style.gap = '8px';
-    multWrap.style.marginBottom = '6px';
+    multWrap.style.gap = '6px';
+    multWrap.style.marginBottom = '4px';
 
     const multLabel = document.createElement('span');
     multLabel.textContent = 'Max price x';
@@ -2576,8 +2582,8 @@ function soundForTier(tier) {
     armorWrap.style.display = 'flex';
     armorWrap.style.alignItems = 'center';
     armorWrap.style.justifyContent = 'space-between';
-    armorWrap.style.gap = '8px';
-    armorWrap.style.marginBottom = '6px';
+    armorWrap.style.gap = '6px';
+    armorWrap.style.marginBottom = '4px';
 
     const armorLabel = document.createElement('span');
     armorLabel.textContent = 'Min armor';
@@ -2605,8 +2611,8 @@ function soundForTier(tier) {
     qualityWrap.style.display = 'flex';
     qualityWrap.style.alignItems = 'center';
     qualityWrap.style.justifyContent = 'space-between';
-    qualityWrap.style.gap = '8px';
-    qualityWrap.style.marginBottom = '6px';
+    qualityWrap.style.gap = '6px';
+    qualityWrap.style.marginBottom = '4px';
 
     const qualityLabel = document.createElement('span');
     qualityLabel.textContent = 'Min quality';
@@ -2634,8 +2640,8 @@ function soundForTier(tier) {
     pagesWrap.style.display = 'flex';
     pagesWrap.style.alignItems = 'center';
     pagesWrap.style.justifyContent = 'space-between';
-    pagesWrap.style.gap = '8px';
-    pagesWrap.style.marginBottom = '6px';
+    pagesWrap.style.gap = '6px';
+    pagesWrap.style.marginBottom = '4px';
 
     const pagesLabel = document.createElement('span');
     pagesLabel.textContent = 'Pages to scan';
@@ -2666,8 +2672,8 @@ function soundForTier(tier) {
 
     const scanStatus = scanStatusMap?.[itemRule.itemId];
     const statusWrap = document.createElement('div');
-    statusWrap.style.marginTop = '6px';
-    statusWrap.style.paddingTop = '6px';
+    statusWrap.style.marginTop = '4px';
+    statusWrap.style.paddingTop = '4px';
     statusWrap.style.borderTop = '1px solid rgba(255,255,255,0.08)';
     statusWrap.style.fontSize = '10px';
     statusWrap.style.opacity = '0.88';
@@ -2779,7 +2785,7 @@ function soundForTier(tier) {
       topBar.style.paddingBottom = '6px';
 
       const title = document.createElement('div');
-      title.textContent = `Watcher Debug | v${getScriptVersion()}`;
+      title.textContent = `Watcher Debug | v${SCRIPT_VERSION}`;
       title.style.fontWeight = '700';
 
       const btn = document.createElement('button');
@@ -2835,7 +2841,7 @@ function soundForTier(tier) {
     topBar.style.paddingBottom = '6px';
 
     const title = document.createElement('div');
-    title.textContent = 'Watcher Debug | v6.5.4';
+    title.textContent = `Watcher Debug | v${SCRIPT_VERSION}`;
     title.style.fontWeight = '700';
 
     const topBtns = document.createElement('div');
