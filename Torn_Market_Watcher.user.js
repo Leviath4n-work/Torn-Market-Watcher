@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TornPDA Universal Market Watcher
-// @namespace    leviath4n.torn.marketwatch.v6.5.4
-// @version      6.5.4
+// @namespace    leviath4n.torn.marketwatch.v6.5.5
+// @version      6.5.5
 // @description  Multi-item Torn market watcher with server-gated membership, stored user API scanning, watchlists, debug menu, tiers, sound, vibration, persistent popups, and armor/quality filters
 // @author       Leviath4n
 
@@ -1039,6 +1039,16 @@ federal_jail_key 919
     reason: ''
   };
 
+  function getScriptVersion() {
+  try {
+    const meta = document.querySelector('script')?.textContent || '';
+    const match = meta.match(/@version\s+([^\s]+)/);
+    return match ? match[1] : 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+  
   function getJson(key, fallback) {
     try {
       const raw = localStorage.getItem(key);
@@ -2769,7 +2779,7 @@ function soundForTier(tier) {
       topBar.style.paddingBottom = '6px';
 
       const title = document.createElement('div');
-      title.textContent = 'Watcher Debug | v6.5.4';
+      title.textContent = `Watcher Debug | v${getScriptVersion()}`;
       title.style.fontWeight = '700';
 
       const btn = document.createElement('button');
@@ -3380,8 +3390,8 @@ function soundForTier(tier) {
       } else {
         const watchlistGrid = document.createElement('div');
         watchlistGrid.style.display = 'grid';
-        watchlistGrid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(420px, 1fr))';
-        watchlistGrid.style.gap = '8px';
+        watchlistGrid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(300px, 1fr))';
+        watchlistGrid.style.gap = '6px';
         watchlistGrid.style.alignItems = 'start';
         watchlistGrid.style.width = '100%';
         watchlistGrid.style.boxSizing = 'border-box';
