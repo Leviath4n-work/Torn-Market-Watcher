@@ -1,17 +1,19 @@
 // ==UserScript==
-// @updateURL   https://raw.githubusercontent.com/Leviath4n-work/Torn-Market-Watcher/main/Torn_Market_Watcher.user.js
-// @downloadURL https://raw.githubusercontent.com/Leviath4n-work/Torn-Market-Watcher/main/Torn_Market_Watcher.user.js
 // @name         TornPDA Universal Market Watcher
 // @namespace    leviath4n.torn.marketwatch.v6.2
 // @version      6.2.0
 // @description  Multi-item Torn market watcher with server-gated membership, stored user API scanning, watchlists, debug menu, tiers, sound, vibration, persistent popups, and armor/quality filters
+// @author       Leviath4n
+
+// @updateURL   https://raw.githubusercontent.com/Leviath4n-work/Torn-Market-Watcher/main/Torn_Market_Watcher.user.js
+// @downloadURL https://raw.githubusercontent.com/Leviath4n-work/Torn-Market-Watcher/main/Torn_Market_Watcher.user.js
+
 // @match        https://www.torn.com/*
 // @run-at       document-idle
 // @grant        GM_xmlhttpRequest
 // @connect      api.torn.com
 // @connect      torn.com
 // @connect      146.190.216.11
-// @author       Leviath4n
 // ==/UserScript==
 
 (function () {
