@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TornPDA Universal Market Watcher
-// @namespace    leviath4n.torn.marketwatch.v6.4.2
-// @version      6.4.2
+// @namespace    leviath4n.torn.marketwatch.v6.4.3
+// @version      6.4.3
 // @description  Multi-item Torn market watcher with server-gated membership, stored user API scanning, watchlists, debug menu, tiers, sound, vibration, persistent popups, and armor/quality filters
 // @author       Leviath4n
 
@@ -48,7 +48,7 @@
     vibrationEnabled: true,
     soundEnabled: false,
     soundVolume: 100,
-    soundPreset: 'classic'
+    soundPreset: 'classic',
     desktopNotificationsEnabled: false
   };
 
@@ -1675,7 +1675,7 @@ function getSettings() {
     vibrationEnabled: typeof stored.vibrationEnabled === 'boolean' ? stored.vibrationEnabled : DEFAULTS.vibrationEnabled,
     soundEnabled: typeof stored.soundEnabled === 'boolean' ? stored.soundEnabled : DEFAULTS.soundEnabled,
     soundVolume: Number.isFinite(Number(stored.soundVolume)) ? Number(stored.soundVolume) : DEFAULTS.soundVolume,
-    soundPreset: typeof stored.soundPreset === 'string' ? stored.soundPreset : DEFAULTS.soundPreset
+    soundPreset: typeof stored.soundPreset === 'string' ? stored.soundPreset : DEFAULTS.soundPreset,
     desktopNotificationsEnabled: typeof stored.desktopNotificationsEnabled === 'boolean'
       ? stored.desktopNotificationsEnabled
       : DEFAULTS.desktopNotificationsEnabled
@@ -2160,7 +2160,6 @@ function soundForTier(tier) {
 
     vibrateForTier(tier);
     soundForTier(tier);
-    showDesktopNotification(title, text, null);
   }
 
   function ensureDebugPanel() {
