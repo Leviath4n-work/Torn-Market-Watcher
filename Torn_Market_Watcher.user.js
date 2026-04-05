@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TornPDA Universal Market Watcher
-// @namespace    leviath4n.torn.marketwatch.v6.4.3
-// @version      6.4.3
+// @namespace    leviath4n.torn.marketwatch.v6.5.0
+// @version      6.5.0
 // @description  Multi-item Torn market watcher with server-gated membership, stored user API scanning, watchlists, debug menu, tiers, sound, vibration, persistent popups, and armor/quality filters
 // @author       Leviath4n
 
@@ -87,6 +87,7 @@
     debugPanelPos: 'umw_debugPanelPos_v57',
     scanStatus: 'umw_scanStatus_v591',
     popupHistory: 'umw_popupHistory_v5100',
+    debugSections: 'umw_debugSections_v650',
   };
 
   const ITEM_CATALOG_RAW = String.raw`
@@ -2251,6 +2252,78 @@ function soundForTier(tier) {
     container.appendChild(el);
   }
 
+  function getDebugSectionStateMap() {
+    return getJson(STORAGE_KEYS.debugSections, {});
+  }
+
+  function isDebugSectionCollapsed(key) {
+    return !!getDebugSectionStateMap()[key];
+  }
+
+  function setDebugSectionCollapsed(key, collapsed) {
+    const map = getDebugSectionStateMap();
+    map[key] = !!collapsed;
+    setJson(STORAGE_KEYS.debugSections, map);
+  }
+
+  function toggleDebugSectionCollapsed(key) {
+    setDebugSectionCollapsed(key, !isDebugSectionCollapsed(key));
+    refreshDebugPanel(true);
+  }
+
+  function appendDebugSection(container, key, titleText, renderContent, options = {}) {
+    const showDivider = options.showDivider !== false;
+
+    if (showDivider) {
+      addDivider(container);
+    }
+
+    const sectionWrap = document.createElement('div');
+    sectionWrap.style.marginBottom = '2px';
+
+    const headerBtn = document.createElement('button');
+    headerBtn.type = 'button';
+    headerBtn.style.width = '100%';
+    headerBtn.style.display = 'flex';
+    headerBtn.style.alignItems = 'center';
+    headerBtn.style.justifyContent = 'space-between';
+    headerBtn.style.gap = '8px';
+    headerBtn.style.background = 'transparent';
+    headerBtn.style.color = '#fff';
+    headerBtn.style.border = 'none';
+    headerBtn.style.padding = '0';
+    headerBtn.style.marginBottom = '6px';
+    headerBtn.style.cursor = 'pointer';
+    headerBtn.style.font = 'inherit';
+    headerBtn.style.textAlign = 'left';
+
+    const title = document.createElement('div');
+    title.textContent = titleText;
+    title.style.fontWeight = '700';
+
+    const chevron = document.createElement('div');
+    chevron.textContent = isDebugSectionCollapsed(key) ? '+' : '−';
+    chevron.style.opacity = '0.8';
+    chevron.style.fontSize = '14px';
+    chevron.style.minWidth = '16px';
+    chevron.style.textAlign = 'right';
+
+    headerBtn.appendChild(title);
+    headerBtn.appendChild(chevron);
+    headerBtn.addEventListener('click', () => toggleDebugSectionCollapsed(key));
+
+    sectionWrap.appendChild(headerBtn);
+
+    if (!isDebugSectionCollapsed(key)) {
+      const content = document.createElement('div');
+      renderContent(content);
+      sectionWrap.appendChild(content);
+    }
+
+    container.appendChild(sectionWrap);
+    return sectionWrap;
+  }
+
   function addDivider(container) {
     const hr = document.createElement('div');
     hr.style.borderTop = '1px solid rgba(255,255,255,0.10)';
@@ -2662,615 +2735,609 @@ function soundForTier(tier) {
     addDebugLine(statusBlock, 'Est. API / min', apiEstimate.requestsPerMinute.toFixed(1));
     debugPanelEl.appendChild(statusBlock);
 
-    addDivider(debugPanelEl);
-    addSectionTitle(debugPanelEl, 'Membership');
+    appendDebugSection(debugPanelEl, 'membership', 'Membership', (section) => {
+      const membershipInfo = document.createElement('div');
+      membershipInfo.style.marginBottom = '8px';
+      membershipInfo.style.opacity = '0.9';
+      membershipInfo.textContent = membershipState.checked
+        ? `Status: ${membershipState.active ? 'Active' : 'Inactive'} | Player: ${membershipState.playerName || 'Unknown'} (${membershipState.playerId || 'n/a'})`
+        : 'Status: not checked yet';
+      section.appendChild(membershipInfo);
 
-    const membershipInfo = document.createElement('div');
-    membershipInfo.style.marginBottom = '8px';
-    membershipInfo.style.opacity = '0.9';
-    membershipInfo.textContent = membershipState.checked
-      ? `Status: ${membershipState.active ? 'Active' : 'Inactive'} | Player: ${membershipState.playerName || 'Unknown'} (${membershipState.playerId || 'n/a'})`
-      : 'Status: not checked yet';
-    debugPanelEl.appendChild(membershipInfo);
-
-    if (!membershipState.active) {
-      const inactiveMembershipBox = document.createElement('div');
-      inactiveMembershipBox.style.padding = '8px';
-      inactiveMembershipBox.style.background = 'rgba(120,90,18,0.25)';
-      inactiveMembershipBox.style.border = '1px solid rgba(255,255,255,0.15)';
-      inactiveMembershipBox.style.borderRadius = '6px';
-      inactiveMembershipBox.style.marginBottom = '8px';
-      inactiveMembershipBox.style.fontSize = '11px';
-      inactiveMembershipBox.style.lineHeight = '1.4';
-      inactiveMembershipBox.innerHTML =
-        '<b>Membership inactive</b><br>' +
-        'Send 1 Xanax to Leviathan [3634894]<br>' +
-        'to receive 5 days access.<br><br>' +
-        'Initial signup includes a 1 day trial.';
-      debugPanelEl.appendChild(inactiveMembershipBox);
-    }
-
-    const membershipInput = document.createElement('input');
-    membershipInput.type = 'text';
-    membershipInput.placeholder = 'Paste Torn API key here';
-    membershipInput.value = '';
-    membershipInput.style.width = '100%';
-    membershipInput.style.boxSizing = 'border-box';
-    membershipInput.style.background = '#111';
-    membershipInput.style.color = '#fff';
-    membershipInput.style.border = '1px solid rgba(255,255,255,0.14)';
-    membershipInput.style.borderRadius = '6px';
-    membershipInput.style.padding = '6px 8px';
-    membershipInput.style.marginBottom = '8px';
-    debugPanelEl.appendChild(membershipInput);
-
-    const membershipKeyHint = document.createElement('div');
-    membershipKeyHint.style.fontSize = '10px';
-    membershipKeyHint.style.opacity = '0.75';
-    membershipKeyHint.style.marginBottom = '8px';
-    membershipKeyHint.textContent = 'Recommended: use a LIMITED Torn API key. Full access is not needed for market scanning.';
-    debugPanelEl.appendChild(membershipKeyHint);
-
-    const membershipBtnRow = document.createElement('div');
-    membershipBtnRow.style.display = 'flex';
-    membershipBtnRow.style.gap = '6px';
-    membershipBtnRow.style.marginBottom = '8px';
-    membershipBtnRow.style.flexWrap = 'wrap';
-
-    const registerBtn = document.createElement('button');
-    registerBtn.type = 'button';
-    registerBtn.textContent = 'Save API + Register';
-    registerBtn.style.background = '#111';
-    registerBtn.style.color = '#fff';
-    registerBtn.style.border = '1px solid rgba(255,255,255,0.14)';
-    registerBtn.style.borderRadius = '6px';
-    registerBtn.style.padding = '4px 8px';
-    registerBtn.style.cursor = 'pointer';
-    registerBtn.addEventListener('click', async () => {
-      const apiKey = String(membershipInput.value || '').trim();
-      if (!apiKey) {
-        alert('Paste your Torn API key into the box first.');
-        return;
+      if (!membershipState.active) {
+        const inactiveMembershipBox = document.createElement('div');
+        inactiveMembershipBox.style.padding = '8px';
+        inactiveMembershipBox.style.background = 'rgba(120,90,18,0.25)';
+        inactiveMembershipBox.style.border = '1px solid rgba(255,255,255,0.15)';
+        inactiveMembershipBox.style.borderRadius = '6px';
+        inactiveMembershipBox.style.marginBottom = '8px';
+        inactiveMembershipBox.style.fontSize = '11px';
+        inactiveMembershipBox.style.lineHeight = '1.4';
+        inactiveMembershipBox.innerHTML =
+          '<b>Membership inactive</b><br>' +
+          'Send 1 Xanax to Leviathan [3634894]<br>' +
+          'to receive 5 days access.<br><br>' +
+          'Initial signup includes a 1 day trial.';
+        section.appendChild(inactiveMembershipBox);
       }
 
-      try {
-        const keyType = await detectApiKeyType(apiKey);
+      const membershipInput = document.createElement('input');
+      membershipInput.type = 'text';
+      membershipInput.placeholder = 'Paste Torn API key here';
+      membershipInput.value = '';
+      membershipInput.style.width = '100%';
+      membershipInput.style.boxSizing = 'border-box';
+      membershipInput.style.background = '#111';
+      membershipInput.style.color = '#fff';
+      membershipInput.style.border = '1px solid rgba(255,255,255,0.14)';
+      membershipInput.style.borderRadius = '6px';
+      membershipInput.style.padding = '6px 8px';
+      membershipInput.style.marginBottom = '8px';
+      section.appendChild(membershipInput);
 
-        if (keyType === 'full') {
-          const proceed = window.confirm(
-            'Warning: you are using a FULL ACCESS Torn API key.\n\n' +
-            'This script only needs a LIMITED key for market scanning.\n\n' +
-            'Using a full key is not recommended. Continue anyway?'
-          );
+      const membershipKeyHint = document.createElement('div');
+      membershipKeyHint.style.fontSize = '10px';
+      membershipKeyHint.style.opacity = '0.75';
+      membershipKeyHint.style.marginBottom = '8px';
+      membershipKeyHint.textContent = 'Recommended: use a LIMITED Torn API key. Full access is not needed for market scanning.';
+      section.appendChild(membershipKeyHint);
 
-          if (!proceed) return;
+      const membershipBtnRow = document.createElement('div');
+      membershipBtnRow.style.display = 'flex';
+      membershipBtnRow.style.gap = '6px';
+      membershipBtnRow.style.marginBottom = '8px';
+      membershipBtnRow.style.flexWrap = 'wrap';
+
+      const registerBtn = document.createElement('button');
+      registerBtn.type = 'button';
+      registerBtn.textContent = 'Save API + Register';
+      registerBtn.style.background = '#111';
+      registerBtn.style.color = '#fff';
+      registerBtn.style.border = '1px solid rgba(255,255,255,0.14)';
+      registerBtn.style.borderRadius = '6px';
+      registerBtn.style.padding = '4px 8px';
+      registerBtn.style.cursor = 'pointer';
+      registerBtn.addEventListener('click', async () => {
+        const apiKey = String(membershipInput.value || '').trim();
+        if (!apiKey) {
+          alert('Paste your Torn API key into the box first.');
+          return;
         }
 
-        const reg = await registerWithServer(apiKey);
-        const status = await checkAuthStatus(reg.playerId);
-        applyMembershipState(status);
+        try {
+          const keyType = await detectApiKeyType(apiKey);
+
+          if (keyType === 'full') {
+            const proceed = window.confirm(
+              'Warning: you are using a FULL ACCESS Torn API key.\n\n' +
+              'This script only needs a LIMITED key for market scanning.\n\n' +
+              'Using a full key is not recommended. Continue anyway?'
+            );
+
+            if (!proceed) return;
+          }
+
+          const reg = await registerWithServer(apiKey);
+          const status = await checkAuthStatus(reg.playerId);
+          applyMembershipState(status);
+          membershipInput.value = '';
+          alert(`Registered as ${reg.playerName} (${reg.playerId}). Stored API key will now be used for market scanning too.`);
+        } catch (err) {
+          alert(`Registration failed: ${err?.message || err}`);
+        }
+      });
+
+      const refreshMembershipBtn = document.createElement('button');
+      refreshMembershipBtn.type = 'button';
+      refreshMembershipBtn.textContent = 'Refresh Membership';
+      refreshMembershipBtn.style.background = '#111';
+      refreshMembershipBtn.style.color = '#fff';
+      refreshMembershipBtn.style.border = '1px solid rgba(255,255,255,0.14)';
+      refreshMembershipBtn.style.borderRadius = '6px';
+      refreshMembershipBtn.style.padding = '4px 8px';
+      refreshMembershipBtn.style.cursor = 'pointer';
+      refreshMembershipBtn.addEventListener('click', async () => {
+        const playerId = getStoredPlayerId();
+        if (!playerId) {
+          alert('No registered player ID stored yet.');
+          return;
+        }
+
+        try {
+          const status = await checkAuthStatus(playerId);
+          applyMembershipState(status);
+          alert(`Membership is now ${status.active ? 'active' : 'inactive'}.`);
+        } catch (err) {
+          alert(`Refresh failed: ${err?.message || err}`);
+        }
+      });
+
+      const clearMembershipBtn = document.createElement('button');
+      clearMembershipBtn.type = 'button';
+      clearMembershipBtn.textContent = 'Clear Stored API';
+      clearMembershipBtn.style.background = '#111';
+      clearMembershipBtn.style.color = '#fff';
+      clearMembershipBtn.style.border = '1px solid rgba(255,255,255,0.14)';
+      clearMembershipBtn.style.borderRadius = '6px';
+      clearMembershipBtn.style.padding = '4px 8px';
+      clearMembershipBtn.style.cursor = 'pointer';
+      clearMembershipBtn.addEventListener('click', () => {
+        const confirmed = window.confirm('Clear the stored API key, player ID, player name, and membership cache on this browser?');
+        if (!confirmed) return;
+        clearStoredMembership();
         membershipInput.value = '';
-        alert(`Registered as ${reg.playerName} (${reg.playerId}). Stored API key will now be used for market scanning too.`);
-      } catch (err) {
-        alert(`Registration failed: ${err?.message || err}`);
-      }
-    });
+        alert('Stored API and membership data cleared.');
+      });
 
-    const refreshMembershipBtn = document.createElement('button');
-    refreshMembershipBtn.type = 'button';
-    refreshMembershipBtn.textContent = 'Refresh Membership';
-    refreshMembershipBtn.style.background = '#111';
-    refreshMembershipBtn.style.color = '#fff';
-    refreshMembershipBtn.style.border = '1px solid rgba(255,255,255,0.14)';
-    refreshMembershipBtn.style.borderRadius = '6px';
-    refreshMembershipBtn.style.padding = '4px 8px';
-    refreshMembershipBtn.style.cursor = 'pointer';
-    refreshMembershipBtn.addEventListener('click', async () => {
-      const playerId = getStoredPlayerId();
-      if (!playerId) {
-        alert('No registered player ID stored yet.');
-        return;
+      membershipBtnRow.appendChild(registerBtn);
+      membershipBtnRow.appendChild(refreshMembershipBtn);
+      membershipBtnRow.appendChild(clearMembershipBtn);
+      section.appendChild(membershipBtnRow);
+
+      if (membershipState.expiresAt) {
+        const expiryInfo = document.createElement('div');
+        expiryInfo.style.marginBottom = '8px';
+        expiryInfo.style.opacity = '0.8';
+        expiryInfo.textContent = `Expires: ${formatDateTime(membershipState.expiresAt)} | Time left: ${formatMembershipRemaining(membershipState.msLeft)}`;
+        section.appendChild(expiryInfo);
       }
 
-      try {
-        const status = await checkAuthStatus(playerId);
-        applyMembershipState(status);
-        alert(`Membership is now ${status.active ? 'active' : 'inactive'}.`);
-      } catch (err) {
-        alert(`Refresh failed: ${err?.message || err}`);
+      if (membershipState.reason) {
+        const reasonInfo = document.createElement('div');
+        reasonInfo.style.marginBottom = '8px';
+        reasonInfo.style.opacity = '0.75';
+        reasonInfo.textContent = `Reason: ${membershipState.reason}`;
+        section.appendChild(reasonInfo);
       }
+
+      const storedApiKeyInfo = document.createElement('div');
+      storedApiKeyInfo.style.marginBottom = '8px';
+      storedApiKeyInfo.style.opacity = '0.75';
+      storedApiKeyInfo.textContent = `Stored scan API: ${getEffectiveApiKey() ? 'present' : 'missing'}`;
+      section.appendChild(storedApiKeyInfo);
+
+      const membershipTrialInfo = document.createElement('div');
+      membershipTrialInfo.style.fontSize = '10px';
+      membershipTrialInfo.style.opacity = '0.85';
+      membershipTrialInfo.style.marginBottom = '4px';
+      membershipTrialInfo.textContent = MEMBERSHIP_TRIAL_MESSAGE;
+      section.appendChild(membershipTrialInfo);
+
+      const membershipPaymentInfo = document.createElement('div');
+      membershipPaymentInfo.style.fontSize = '10px';
+      membershipPaymentInfo.style.opacity = '0.85';
+      membershipPaymentInfo.style.marginBottom = '8px';
+      membershipPaymentInfo.textContent = MEMBERSHIP_PAYMENT_MESSAGE;
+      section.appendChild(membershipPaymentInfo);
     });
 
-    const clearMembershipBtn = document.createElement('button');
-    clearMembershipBtn.type = 'button';
-    clearMembershipBtn.textContent = 'Clear Stored API';
-    clearMembershipBtn.style.background = '#111';
-    clearMembershipBtn.style.color = '#fff';
-    clearMembershipBtn.style.border = '1px solid rgba(255,255,255,0.14)';
-    clearMembershipBtn.style.borderRadius = '6px';
-    clearMembershipBtn.style.padding = '4px 8px';
-    clearMembershipBtn.style.cursor = 'pointer';
-    clearMembershipBtn.addEventListener('click', () => {
-      const confirmed = window.confirm('Clear the stored API key, player ID, player name, and membership cache on this browser?');
-      if (!confirmed) return;
-      clearStoredMembership();
-      membershipInput.value = '';
-      alert('Stored API and membership data cleared.');
-    });
+    appendDebugSection(debugPanelEl, 'global_settings', 'Global settings', (section) => {
+      const apiEstimateNote = document.createElement('div');
+      apiEstimateNote.style.fontSize = '10px';
+      apiEstimateNote.style.opacity = '0.75';
+      apiEstimateNote.style.marginBottom = '8px';
+      apiEstimateNote.textContent = 'Estimate is based on enabled items, pages per item, and global poll rate.';
+      section.appendChild(apiEstimateNote);
 
-    membershipBtnRow.appendChild(registerBtn);
-    membershipBtnRow.appendChild(refreshMembershipBtn);
-    membershipBtnRow.appendChild(clearMembershipBtn);
-    debugPanelEl.appendChild(membershipBtnRow);
+      const pollRow = document.createElement('div');
+      pollRow.style.display = 'flex';
+      pollRow.style.alignItems = 'center';
+      pollRow.style.justifyContent = 'space-between';
+      pollRow.style.gap = '8px';
+      pollRow.style.marginBottom = '6px';
 
-    if (membershipState.expiresAt) {
-      const expiryInfo = document.createElement('div');
-      expiryInfo.style.marginBottom = '8px';
-      expiryInfo.style.opacity = '0.8';
-      expiryInfo.textContent = `Expires: ${formatDateTime(membershipState.expiresAt)} | Time left: ${formatMembershipRemaining(membershipState.msLeft)}`;
-      debugPanelEl.appendChild(expiryInfo);
-    }
-
-    if (membershipState.reason) {
-      const reasonInfo = document.createElement('div');
-      reasonInfo.style.marginBottom = '8px';
-      reasonInfo.style.opacity = '0.75';
-      reasonInfo.textContent = `Reason: ${membershipState.reason}`;
-      debugPanelEl.appendChild(reasonInfo);
-    }
-
-    const storedApiKeyInfo = document.createElement('div');
-    storedApiKeyInfo.style.marginBottom = '8px';
-    storedApiKeyInfo.style.opacity = '0.75';
-    storedApiKeyInfo.textContent = `Stored scan API: ${getEffectiveApiKey() ? 'present' : 'missing'}`;
-    debugPanelEl.appendChild(storedApiKeyInfo);
-
-    const membershipTrialInfo = document.createElement('div');
-    membershipTrialInfo.style.fontSize = '10px';
-    membershipTrialInfo.style.opacity = '0.85';
-    membershipTrialInfo.style.marginBottom = '4px';
-    membershipTrialInfo.textContent = MEMBERSHIP_TRIAL_MESSAGE;
-    debugPanelEl.appendChild(membershipTrialInfo);
-
-    const membershipPaymentInfo = document.createElement('div');
-    membershipPaymentInfo.style.fontSize = '10px';
-    membershipPaymentInfo.style.opacity = '0.85';
-    membershipPaymentInfo.style.marginBottom = '8px';
-    membershipPaymentInfo.textContent = MEMBERSHIP_PAYMENT_MESSAGE;
-    debugPanelEl.appendChild(membershipPaymentInfo);
-
-    addDivider(debugPanelEl);
-    addSectionTitle(debugPanelEl, 'Global settings');
-    const apiEstimateNote = document.createElement('div');
-    apiEstimateNote.style.fontSize = '10px';
-    apiEstimateNote.style.opacity = '0.75';
-    apiEstimateNote.style.marginBottom = '8px';
-    apiEstimateNote.textContent = 'Estimate is based on enabled items, pages per item, and global poll rate.';
-    debugPanelEl.appendChild(apiEstimateNote);
-
-
-    const pollRow = document.createElement('div');
-    pollRow.style.display = 'flex';
-    pollRow.style.alignItems = 'center';
-    pollRow.style.justifyContent = 'space-between';
-    pollRow.style.gap = '8px';
-    pollRow.style.marginBottom = '6px';
-
-    const pollLabel = document.createElement('span');
-    pollLabel.textContent = 'Poll ms';
-    const pollInput = makeNumberInput(settings.pollMs, '1000', '5000');
-    pollInput.addEventListener('change', () => {
-      const n = Math.max(5000, Math.floor(Number(pollInput.value) || DEFAULTS.pollMs));
-      const next = getSettings();
-      next.pollMs = n;
-      saveSettings(next);
-    });
-    pollInput.addEventListener('blur', () => pollInput.dispatchEvent(new Event('change')));
-    pollRow.appendChild(pollLabel);
-    pollRow.appendChild(pollInput);
-    debugPanelEl.appendChild(pollRow);
-
-    const cdRow = document.createElement('div');
-    cdRow.style.display = 'flex';
-    cdRow.style.alignItems = 'center';
-    cdRow.style.justifyContent = 'space-between';
-    cdRow.style.gap = '8px';
-    cdRow.style.marginBottom = '6px';
-
-    const cdLabel = document.createElement('span');
-    cdLabel.textContent = 'Cooldown ms';
-    const cdInput = makeNumberInput(settings.alertCooldownMs, '1000', '0');
-    cdInput.addEventListener('change', () => {
-      const n = Math.max(0, Math.floor(Number(cdInput.value) || DEFAULTS.alertCooldownMs));
-      const next = getSettings();
-      next.alertCooldownMs = n;
-      saveSettings(next);
-    });
-    cdInput.addEventListener('blur', () => cdInput.dispatchEvent(new Event('change')));
-    cdRow.appendChild(cdLabel);
-    cdRow.appendChild(cdInput);
-    debugPanelEl.appendChild(cdRow);
-
-    debugPanelEl.appendChild(
-      makeToggleRow('Vibration', settings.vibrationEnabled, () => {
+      const pollLabel = document.createElement('span');
+      pollLabel.textContent = 'Poll ms';
+      const pollInput = makeNumberInput(settings.pollMs, '1000', '5000');
+      pollInput.addEventListener('change', () => {
+        const n = Math.max(5000, Math.floor(Number(pollInput.value) || DEFAULTS.pollMs));
         const next = getSettings();
-        next.vibrationEnabled = !next.vibrationEnabled;
+        next.pollMs = n;
         saveSettings(next);
-      })
-    );
+      });
+      pollInput.addEventListener('blur', () => pollInput.dispatchEvent(new Event('change')));
+      pollRow.appendChild(pollLabel);
+      pollRow.appendChild(pollInput);
+      section.appendChild(pollRow);
 
-    debugPanelEl.appendChild(
-      makeToggleRow('Sound', settings.soundEnabled, () => {
+      const cdRow = document.createElement('div');
+      cdRow.style.display = 'flex';
+      cdRow.style.alignItems = 'center';
+      cdRow.style.justifyContent = 'space-between';
+      cdRow.style.gap = '8px';
+      cdRow.style.marginBottom = '6px';
+
+      const cdLabel = document.createElement('span');
+      cdLabel.textContent = 'Cooldown ms';
+      const cdInput = makeNumberInput(settings.alertCooldownMs, '1000', '0');
+      cdInput.addEventListener('change', () => {
+        const n = Math.max(0, Math.floor(Number(cdInput.value) || DEFAULTS.alertCooldownMs));
+        const next = getSettings();
+        next.alertCooldownMs = n;
+        saveSettings(next);
+      });
+      cdInput.addEventListener('blur', () => cdInput.dispatchEvent(new Event('change')));
+      cdRow.appendChild(cdLabel);
+      cdRow.appendChild(cdInput);
+      section.appendChild(cdRow);
+
+      section.appendChild(
+        makeToggleRow('Vibration', settings.vibrationEnabled, () => {
+          const next = getSettings();
+          next.vibrationEnabled = !next.vibrationEnabled;
+          saveSettings(next);
+        })
+      );
+
+      section.appendChild(
+        makeToggleRow('Sound', settings.soundEnabled, () => {
+          unlockAudioContext();
+          const next = getSettings();
+          next.soundEnabled = !next.soundEnabled;
+          saveSettings(next);
+        })
+      );
+
+      section.appendChild(
+        makeToggleRow('Desktop notifications', settings.desktopNotificationsEnabled, () => {
+          const next = getSettings();
+          next.desktopNotificationsEnabled = !next.desktopNotificationsEnabled;
+          saveSettings(next);
+        })
+      );
+
+      const soundVolumeRow = document.createElement('div');
+      soundVolumeRow.style.display = 'flex';
+      soundVolumeRow.style.alignItems = 'center';
+      soundVolumeRow.style.justifyContent = 'space-between';
+      soundVolumeRow.style.gap = '8px';
+      soundVolumeRow.style.marginBottom = '6px';
+
+      const soundVolumeLabel = document.createElement('span');
+      soundVolumeLabel.textContent = `Sound volume (${settings.soundVolume}%)`;
+
+      const soundVolumeInput = document.createElement('input');
+      soundVolumeInput.type = 'range';
+      soundVolumeInput.min = '0';
+      soundVolumeInput.max = '300';
+      soundVolumeInput.step = '5';
+      soundVolumeInput.value = String(settings.soundVolume);
+      soundVolumeInput.style.width = '140px';
+
+      soundVolumeInput.addEventListener('input', () => {
+        soundVolumeLabel.textContent = `Sound volume (${soundVolumeInput.value}%)`;
+      });
+
+      soundVolumeInput.addEventListener('change', () => {
+        const next = getSettings();
+        next.soundVolume = Math.max(0, Math.min(300, Number(soundVolumeInput.value) || DEFAULTS.soundVolume));
+        saveSettings(next);
+      });
+
+      soundVolumeRow.appendChild(soundVolumeLabel);
+      soundVolumeRow.appendChild(soundVolumeInput);
+      section.appendChild(soundVolumeRow);
+
+      const soundPresetRow = document.createElement('div');
+      soundPresetRow.style.display = 'flex';
+      soundPresetRow.style.alignItems = 'center';
+      soundPresetRow.style.justifyContent = 'space-between';
+      soundPresetRow.style.gap = '8px';
+      soundPresetRow.style.marginBottom = '6px';
+
+      const soundPresetLabel = document.createElement('span');
+      soundPresetLabel.textContent = 'Sound preset';
+
+      const soundPresetSelect = document.createElement('select');
+      soundPresetSelect.style.background = '#111';
+      soundPresetSelect.style.color = '#fff';
+      soundPresetSelect.style.border = '1px solid rgba(255,255,255,0.14)';
+      soundPresetSelect.style.borderRadius = '6px';
+      soundPresetSelect.style.padding = '4px 6px';
+
+      [
+        ['classic', 'Classic'],
+        ['arcade', 'Arcade'],
+        ['alarm', 'Alarm']
+      ].forEach(([value, label]) => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = label;
+        if (settings.soundPreset === value) option.selected = true;
+        soundPresetSelect.appendChild(option);
+      });
+
+      soundPresetSelect.addEventListener('change', () => {
+        const next = getSettings();
+        next.soundPreset = soundPresetSelect.value;
+        saveSettings(next);
+      });
+
+      soundPresetRow.appendChild(soundPresetLabel);
+      soundPresetRow.appendChild(soundPresetSelect);
+      section.appendChild(soundPresetRow);
+
+      const soundTestRow = document.createElement('div');
+      soundTestRow.style.display = 'flex';
+      soundTestRow.style.justifyContent = 'flex-end';
+      soundTestRow.style.marginBottom = '8px';
+
+      const soundTestBtn = document.createElement('button');
+      soundTestBtn.type = 'button';
+      soundTestBtn.textContent = 'Test sound';
+      soundTestBtn.style.background = '#111';
+      soundTestBtn.style.color = '#fff';
+      soundTestBtn.style.border = '1px solid rgba(255,255,255,0.14)';
+      soundTestBtn.style.borderRadius = '6px';
+      soundTestBtn.style.padding = '4px 8px';
+      soundTestBtn.style.cursor = 'pointer';
+
+      soundTestBtn.addEventListener('click', () => {
         unlockAudioContext();
-        const next = getSettings();
-        next.soundEnabled = !next.soundEnabled;
-        saveSettings(next);
-      })
-    );
+        soundForTier('insane');
 
-    debugPanelEl.appendChild(
-  makeToggleRow('Desktop notifications', settings.desktopNotificationsEnabled, () => {
-    const next = getSettings();
-    next.desktopNotificationsEnabled = !next.desktopNotificationsEnabled;
-    saveSettings(next);
-  })
-);
+        const oldText = soundTestBtn.textContent;
+        soundTestBtn.textContent = 'Played';
+        setTimeout(() => {
+          soundTestBtn.textContent = oldText;
+        }, 800);
+      });
 
-const soundVolumeRow = document.createElement('div');
-soundVolumeRow.style.display = 'flex';
-soundVolumeRow.style.alignItems = 'center';
-soundVolumeRow.style.justifyContent = 'space-between';
-soundVolumeRow.style.gap = '8px';
-soundVolumeRow.style.marginBottom = '6px';
+      soundTestRow.appendChild(soundTestBtn);
+      section.appendChild(soundTestRow);
 
-const soundVolumeLabel = document.createElement('span');
-soundVolumeLabel.textContent = `Sound volume (${settings.soundVolume}%)`;
+      const notifRow = document.createElement('div');
+      notifRow.style.display = 'flex';
+      notifRow.style.justifyContent = 'space-between';
+      notifRow.style.alignItems = 'center';
+      notifRow.style.gap = '8px';
+      notifRow.style.marginBottom = '8px';
 
-const soundVolumeInput = document.createElement('input');
-soundVolumeInput.type = 'range';
-soundVolumeInput.min = '0';
-soundVolumeInput.max = '300';
-soundVolumeInput.step = '5';
-soundVolumeInput.value = String(settings.soundVolume);
-soundVolumeInput.style.width = '140px';
+      const notifLabel = document.createElement('span');
+      notifLabel.textContent = `Notification permission: ${
+        canUseDesktopNotifications() ? Notification.permission : 'unsupported'
+      }`;
 
-soundVolumeInput.addEventListener('input', () => {
-  soundVolumeLabel.textContent = `Sound volume (${soundVolumeInput.value}%)`;
-});
+      const notifBtn = document.createElement('button');
+      notifBtn.type = 'button';
+      notifBtn.textContent = 'Enable notifications';
+      notifBtn.style.background = '#111';
+      notifBtn.style.color = '#fff';
+      notifBtn.style.border = '1px solid rgba(255,255,255,0.14)';
+      notifBtn.style.borderRadius = '6px';
+      notifBtn.style.padding = '4px 8px';
+      notifBtn.style.cursor = 'pointer';
 
-soundVolumeInput.addEventListener('change', () => {
-  const next = getSettings();
-  next.soundVolume = Math.max(0, Math.min(300, Number(soundVolumeInput.value) || DEFAULTS.soundVolume));
-  saveSettings(next);
-});
+      notifBtn.addEventListener('click', async () => {
+        const result = await requestDesktopNotificationPermission();
+        notifLabel.textContent = `Notification permission: ${result}`;
+      });
 
-soundVolumeRow.appendChild(soundVolumeLabel);
-soundVolumeRow.appendChild(soundVolumeInput);
-debugPanelEl.appendChild(soundVolumeRow);
+      notifRow.appendChild(notifLabel);
+      notifRow.appendChild(notifBtn);
+      section.appendChild(notifRow);
+    });
 
-const soundPresetRow = document.createElement('div');
-soundPresetRow.style.display = 'flex';
-soundPresetRow.style.alignItems = 'center';
-soundPresetRow.style.justifyContent = 'space-between';
-soundPresetRow.style.gap = '8px';
-soundPresetRow.style.marginBottom = '6px';
+    appendDebugSection(debugPanelEl, 'add_item', 'Add item', (section) => {
+      const addWrap = document.createElement('div');
+      addWrap.style.marginBottom = '8px';
 
-const soundPresetLabel = document.createElement('span');
-soundPresetLabel.textContent = 'Sound preset';
+      const searchInput = document.createElement('input');
+      searchInput.type = 'text';
+      searchInput.placeholder = 'Start typing item name...';
+      searchInput.value = uiState.searchQuery;
+      searchInput.style.width = '100%';
+      searchInput.style.boxSizing = 'border-box';
+      searchInput.style.background = '#111';
+      searchInput.style.color = '#fff';
+      searchInput.style.border = '1px solid rgba(255,255,255,0.14)';
+      searchInput.style.borderRadius = '6px';
+      searchInput.style.padding = '6px 8px';
 
-const soundPresetSelect = document.createElement('select');
-soundPresetSelect.style.background = '#111';
-soundPresetSelect.style.color = '#fff';
-soundPresetSelect.style.border = '1px solid rgba(255,255,255,0.14)';
-soundPresetSelect.style.borderRadius = '6px';
-soundPresetSelect.style.padding = '4px 6px';
+      const resultsWrap = document.createElement('div');
+      resultsWrap.style.marginTop = '6px';
+      resultsWrap.style.maxHeight = '150px';
+      resultsWrap.style.overflowY = 'auto';
 
-[
-  ['classic', 'Classic'],
-  ['arcade', 'Arcade'],
-  ['alarm', 'Alarm']
-].forEach(([value, label]) => {
-  const option = document.createElement('option');
-  option.value = value;
-  option.textContent = label;
-  if (settings.soundPreset === value) option.selected = true;
-  soundPresetSelect.appendChild(option);
-});
+      function renderSearchResults() {
+        resultsWrap.innerHTML = '';
 
-soundPresetSelect.addEventListener('change', () => {
-  const next = getSettings();
-  next.soundPreset = soundPresetSelect.value;
-  saveSettings(next);
-});
+        const existingIds = new Set(getWatchlist().map(x => x.itemId));
+        const results = searchCatalog(uiState.searchQuery, existingIds);
 
-soundPresetRow.appendChild(soundPresetLabel);
-soundPresetRow.appendChild(soundPresetSelect);
-debugPanelEl.appendChild(soundPresetRow);
+        if (!uiState.searchQuery.trim()) return;
 
-const soundTestRow = document.createElement('div');
-soundTestRow.style.display = 'flex';
-soundTestRow.style.justifyContent = 'flex-end';
-soundTestRow.style.marginBottom = '8px';
+        if (results.length === 0) {
+          const none = document.createElement('div');
+          none.textContent = 'No matches';
+          none.style.opacity = '0.7';
+          none.style.padding = '6px 8px';
+          resultsWrap.appendChild(none);
+          return;
+        }
 
-const soundTestBtn = document.createElement('button');
-soundTestBtn.type = 'button';
-soundTestBtn.textContent = 'Test sound';
-soundTestBtn.style.background = '#111';
-soundTestBtn.style.color = '#fff';
-soundTestBtn.style.border = '1px solid rgba(255,255,255,0.14)';
-soundTestBtn.style.borderRadius = '6px';
-soundTestBtn.style.padding = '4px 8px';
-soundTestBtn.style.cursor = 'pointer';
+        results.forEach(item => {
+          const row = document.createElement('div');
+          row.textContent = `${item.displayName} (#${item.itemId})`;
+          row.style.padding = '6px 8px';
+          row.style.border = '1px solid rgba(255,255,255,0.08)';
+          row.style.borderRadius = '6px';
+          row.style.marginBottom = '4px';
+          row.style.cursor = 'pointer';
+          row.style.background = 'rgba(255,255,255,0.03)';
 
-soundTestBtn.addEventListener('click', () => {
-  unlockAudioContext();
-  soundForTier('insane');
+          row.addEventListener('click', () => {
+            const list = getWatchlist();
+            list.push({
+              id: `watch_${item.itemId}_${Date.now()}`,
+              itemId: item.itemId,
+              rawName: item.rawName,
+              displayName: item.displayName,
+              enabled: true,
+              useMV: true,
+              maxMultiplier: 1.10,
+              minArmor: '',
+              minQuality: '',
+              pagesToScan: 1
+            });
+            saveWatchlist(list);
 
-  const oldText = soundTestBtn.textContent;
-  soundTestBtn.textContent = 'Played';
-  setTimeout(() => {
-    soundTestBtn.textContent = oldText;
-  }, 800);
-});
+            uiState.searchQuery = '';
+            uiState.searchFocused = false;
+            searchInput.value = '';
+            renderSearchResults();
+            refreshDebugPanel(true);
+          });
 
-soundTestRow.appendChild(soundTestBtn);
-debugPanelEl.appendChild(soundTestRow);
-
-    const notifRow = document.createElement('div');
-notifRow.style.display = 'flex';
-notifRow.style.justifyContent = 'space-between';
-notifRow.style.alignItems = 'center';
-notifRow.style.gap = '8px';
-notifRow.style.marginBottom = '8px';
-
-const notifLabel = document.createElement('span');
-notifLabel.textContent = `Notification permission: ${
-  canUseDesktopNotifications() ? Notification.permission : 'unsupported'
-}`;
-
-const notifBtn = document.createElement('button');
-notifBtn.type = 'button';
-notifBtn.textContent = 'Enable notifications';
-notifBtn.style.background = '#111';
-notifBtn.style.color = '#fff';
-notifBtn.style.border = '1px solid rgba(255,255,255,0.14)';
-notifBtn.style.borderRadius = '6px';
-notifBtn.style.padding = '4px 8px';
-notifBtn.style.cursor = 'pointer';
-
-notifBtn.addEventListener('click', async () => {
-  const result = await requestDesktopNotificationPermission();
-  notifLabel.textContent = `Notification permission: ${result}`;
-});
-
-notifRow.appendChild(notifLabel);
-notifRow.appendChild(notifBtn);
-debugPanelEl.appendChild(notifRow);
-    
-    addDivider(debugPanelEl);
-    addSectionTitle(debugPanelEl, 'Add item');
-
-    const addWrap = document.createElement('div');
-    addWrap.style.marginBottom = '8px';
-
-    const searchInput = document.createElement('input');
-    searchInput.type = 'text';
-    searchInput.placeholder = 'Start typing item name...';
-    searchInput.value = uiState.searchQuery;
-    searchInput.style.width = '100%';
-    searchInput.style.boxSizing = 'border-box';
-    searchInput.style.background = '#111';
-    searchInput.style.color = '#fff';
-    searchInput.style.border = '1px solid rgba(255,255,255,0.14)';
-    searchInput.style.borderRadius = '6px';
-    searchInput.style.padding = '6px 8px';
-
-    const resultsWrap = document.createElement('div');
-    resultsWrap.style.marginTop = '6px';
-    resultsWrap.style.maxHeight = '150px';
-    resultsWrap.style.overflowY = 'auto';
-
-    function renderSearchResults() {
-      resultsWrap.innerHTML = '';
-
-      const existingIds = new Set(getWatchlist().map(x => x.itemId));
-      const results = searchCatalog(uiState.searchQuery, existingIds);
-
-      if (!uiState.searchQuery.trim()) return;
-
-      if (results.length === 0) {
-        const none = document.createElement('div');
-        none.textContent = 'No matches';
-        none.style.opacity = '0.7';
-        none.style.padding = '6px 8px';
-        resultsWrap.appendChild(none);
-        return;
+          resultsWrap.appendChild(row);
+        });
       }
 
-      results.forEach(item => {
-        const row = document.createElement('div');
-        row.textContent = `${item.displayName} (#${item.itemId})`;
-        row.style.padding = '6px 8px';
-        row.style.border = '1px solid rgba(255,255,255,0.08)';
-        row.style.borderRadius = '6px';
-        row.style.marginBottom = '4px';
-        row.style.cursor = 'pointer';
-        row.style.background = 'rgba(255,255,255,0.03)';
+      searchInput.addEventListener('focus', () => {
+        uiState.searchFocused = true;
+      });
 
-        row.addEventListener('click', () => {
-          const list = getWatchlist();
-          list.push({
-            id: `watch_${item.itemId}_${Date.now()}`,
-            itemId: item.itemId,
-            rawName: item.rawName,
-            displayName: item.displayName,
-            enabled: true,
-            useMV: true,
-            maxMultiplier: 1.10,
-            minArmor: '',
-            minQuality: '',
-            pagesToScan: 1
-          });
-          saveWatchlist(list);
-
-          uiState.searchQuery = '';
+      searchInput.addEventListener('blur', () => {
+        setTimeout(() => {
           uiState.searchFocused = false;
-          searchInput.value = '';
-          renderSearchResults();
-          refreshDebugPanel(true);
+        }, 150);
+      });
+
+      searchInput.addEventListener('input', () => {
+        uiState.searchQuery = searchInput.value;
+        renderSearchResults();
+      });
+
+      renderSearchResults();
+
+      addWrap.appendChild(searchInput);
+      addWrap.appendChild(resultsWrap);
+      section.appendChild(addWrap);
+    });
+
+    appendDebugSection(debugPanelEl, 'watchlist', 'Watchlist', (section) => {
+      if (watchlist.length === 0) {
+        const none = document.createElement('div');
+        none.style.opacity = '0.7';
+        none.textContent = 'No watched items yet.';
+        section.appendChild(none);
+      } else {
+        watchlist.forEach((itemRule, index) => {
+          renderWatchItemCard(section, itemRule, index, marketValues, scanStatusMap);
+        });
+      }
+    });
+
+    appendDebugSection(debugPanelEl, 'diagnostics', 'Diagnostics', (section) => {
+      const lastAlertBox = document.createElement('div');
+      lastAlertBox.style.marginBottom = '6px';
+      lastAlertBox.style.opacity = '0.85';
+      lastAlertBox.textContent = `Last alert: ${lastAlert.message} @ ${formatDateTime(lastAlert.at)}`;
+      section.appendChild(lastAlertBox);
+
+      const lastErrorBox = document.createElement('div');
+      lastErrorBox.style.opacity = '0.85';
+      lastErrorBox.textContent = `Last error: ${lastError.message} @ ${formatDateTime(lastError.at)}`;
+      section.appendChild(lastErrorBox);
+    });
+
+    appendDebugSection(debugPanelEl, 'popup_history', `Popup history (last 10m, ${popupHistory.length})`, (section) => {
+      const historyControls = document.createElement('div');
+      historyControls.style.display = 'flex';
+      historyControls.style.justifyContent = 'flex-end';
+      historyControls.style.marginBottom = '6px';
+
+      const clearHistoryBtn = document.createElement('button');
+      clearHistoryBtn.type = 'button';
+      clearHistoryBtn.textContent = 'Clear history';
+      clearHistoryBtn.style.background = '#111';
+      clearHistoryBtn.style.color = '#fff';
+      clearHistoryBtn.style.border = '1px solid rgba(255,255,255,0.14)';
+      clearHistoryBtn.style.borderRadius = '6px';
+      clearHistoryBtn.style.padding = '4px 8px';
+      clearHistoryBtn.style.cursor = 'pointer';
+      clearHistoryBtn.addEventListener('click', () => clearPopupHistory());
+      historyControls.appendChild(clearHistoryBtn);
+      section.appendChild(historyControls);
+
+      if (popupHistory.length === 0) {
+        const none = document.createElement('div');
+        none.style.opacity = '0.7';
+        none.textContent = 'No popup hits in the last 10 minutes.';
+        section.appendChild(none);
+      } else {
+        const historyWrap = document.createElement('div');
+        historyWrap.style.display = 'flex';
+        historyWrap.style.flexDirection = 'column';
+        historyWrap.style.gap = '6px';
+
+        popupHistory.forEach(entry => {
+          const card = document.createElement('div');
+          card.style.border = '1px solid rgba(255,255,255,0.10)';
+          card.style.borderRadius = '10px';
+          card.style.padding = '8px';
+          card.style.background = 'rgba(255,255,255,0.03)';
+
+          const top = document.createElement('div');
+          top.style.display = 'flex';
+          top.style.justifyContent = 'space-between';
+          top.style.gap = '8px';
+          top.style.marginBottom = '4px';
+
+          const left = document.createElement('div');
+          left.style.fontWeight = '700';
+          left.textContent = entry.itemName || `Item #${entry.itemId}`;
+
+          const right = document.createElement('div');
+          right.style.opacity = '0.72';
+          right.style.fontSize = '10px';
+          right.textContent = formatElapsedSince(entry.at);
+
+          top.appendChild(left);
+          top.appendChild(right);
+          card.appendChild(top);
+
+          const body = document.createElement('div');
+          body.style.fontSize = '10px';
+          body.style.lineHeight = '1.3';
+          body.style.wordBreak = 'break-word';
+          body.textContent = entry.text || '';
+          card.appendChild(body);
+
+          const footer = document.createElement('div');
+          footer.style.display = 'flex';
+          footer.style.justifyContent = 'space-between';
+          footer.style.alignItems = 'center';
+          footer.style.gap = '8px';
+          footer.style.marginTop = '6px';
+
+          const meta = document.createElement('div');
+          meta.style.opacity = '0.7';
+          meta.style.fontSize = '10px';
+          meta.textContent = `${formatDateTime(entry.at)}${Number(entry.count || 1) > 1 ? ` • x${Number(entry.count || 1)}` : ''}`;
+          footer.appendChild(meta);
+
+          if (entry.url) {
+            const openBtn = document.createElement('button');
+            openBtn.type = 'button';
+            openBtn.textContent = 'Open';
+            openBtn.style.background = '#111';
+            openBtn.style.color = '#fff';
+            openBtn.style.border = '1px solid rgba(255,255,255,0.14)';
+            openBtn.style.borderRadius = '6px';
+            openBtn.style.padding = '4px 8px';
+            openBtn.style.cursor = 'pointer';
+            openBtn.addEventListener('click', () => { location.href = entry.url; });
+            footer.appendChild(openBtn);
+          }
+
+          card.appendChild(footer);
+          historyWrap.appendChild(card);
         });
 
-        resultsWrap.appendChild(row);
-      });
-    }
-
-    searchInput.addEventListener('focus', () => {
-      uiState.searchFocused = true;
+        section.appendChild(historyWrap);
+      }
     });
-
-    searchInput.addEventListener('blur', () => {
-      setTimeout(() => {
-        uiState.searchFocused = false;
-      }, 150);
-    });
-
-    searchInput.addEventListener('input', () => {
-      uiState.searchQuery = searchInput.value;
-      renderSearchResults();
-    });
-
-    renderSearchResults();
-
-    addWrap.appendChild(searchInput);
-    addWrap.appendChild(resultsWrap);
-    debugPanelEl.appendChild(addWrap);
-
-    addDivider(debugPanelEl);
-    addSectionTitle(debugPanelEl, 'Watchlist');
-
-    if (watchlist.length === 0) {
-      const none = document.createElement('div');
-      none.style.opacity = '0.7';
-      none.textContent = 'No watched items yet.';
-      debugPanelEl.appendChild(none);
-    } else {
-      watchlist.forEach((itemRule, index) => {
-        renderWatchItemCard(debugPanelEl, itemRule, index, marketValues, scanStatusMap);
-      });
-    }
-
-    addDivider(debugPanelEl);
-    addSectionTitle(debugPanelEl, 'Diagnostics');
-
-    const lastAlertBox = document.createElement('div');
-    lastAlertBox.style.marginBottom = '6px';
-    lastAlertBox.style.opacity = '0.85';
-    lastAlertBox.textContent = `Last alert: ${lastAlert.message} @ ${formatDateTime(lastAlert.at)}`;
-    debugPanelEl.appendChild(lastAlertBox);
-
-    const lastErrorBox = document.createElement('div');
-    lastErrorBox.style.opacity = '0.85';
-    lastErrorBox.textContent = `Last error: ${lastError.message} @ ${formatDateTime(lastError.at)}`;
-    debugPanelEl.appendChild(lastErrorBox);
-
-    addDivider(debugPanelEl);
-    addSectionTitle(debugPanelEl, `Popup history (last 10m, ${popupHistory.length})`);
-
-    const historyControls = document.createElement('div');
-    historyControls.style.display = 'flex';
-    historyControls.style.justifyContent = 'flex-end';
-    historyControls.style.marginBottom = '6px';
-
-    const clearHistoryBtn = document.createElement('button');
-    clearHistoryBtn.type = 'button';
-    clearHistoryBtn.textContent = 'Clear history';
-    clearHistoryBtn.style.background = '#111';
-    clearHistoryBtn.style.color = '#fff';
-    clearHistoryBtn.style.border = '1px solid rgba(255,255,255,0.14)';
-    clearHistoryBtn.style.borderRadius = '6px';
-    clearHistoryBtn.style.padding = '4px 8px';
-    clearHistoryBtn.style.cursor = 'pointer';
-    clearHistoryBtn.addEventListener('click', () => clearPopupHistory());
-    historyControls.appendChild(clearHistoryBtn);
-    debugPanelEl.appendChild(historyControls);
-
-    if (popupHistory.length === 0) {
-      const none = document.createElement('div');
-      none.style.opacity = '0.7';
-      none.textContent = 'No popup hits in the last 10 minutes.';
-      debugPanelEl.appendChild(none);
-    } else {
-      const historyWrap = document.createElement('div');
-      historyWrap.style.display = 'flex';
-      historyWrap.style.flexDirection = 'column';
-      historyWrap.style.gap = '6px';
-
-      popupHistory.forEach(entry => {
-        const card = document.createElement('div');
-        card.style.border = '1px solid rgba(255,255,255,0.10)';
-        card.style.borderRadius = '10px';
-        card.style.padding = '8px';
-        card.style.background = 'rgba(255,255,255,0.03)';
-
-        const top = document.createElement('div');
-        top.style.display = 'flex';
-        top.style.justifyContent = 'space-between';
-        top.style.gap = '8px';
-        top.style.marginBottom = '4px';
-
-        const left = document.createElement('div');
-        left.style.fontWeight = '700';
-        left.textContent = entry.itemName || `Item #${entry.itemId}`;
-
-        const right = document.createElement('div');
-        right.style.opacity = '0.72';
-        right.style.fontSize = '10px';
-        right.textContent = formatElapsedSince(entry.at);
-
-        top.appendChild(left);
-        top.appendChild(right);
-        card.appendChild(top);
-
-        const body = document.createElement('div');
-        body.style.fontSize = '10px';
-        body.style.lineHeight = '1.3';
-        body.style.wordBreak = 'break-word';
-        body.textContent = entry.text || '';
-        card.appendChild(body);
-
-        const footer = document.createElement('div');
-        footer.style.display = 'flex';
-        footer.style.justifyContent = 'space-between';
-        footer.style.alignItems = 'center';
-        footer.style.gap = '8px';
-        footer.style.marginTop = '6px';
-
-        const meta = document.createElement('div');
-        meta.style.opacity = '0.7';
-        meta.style.fontSize = '10px';
-        meta.textContent = `${formatDateTime(entry.at)}${Number(entry.count || 1) > 1 ? ` • x${Number(entry.count || 1)}` : ''}`;
-        footer.appendChild(meta);
-
-        if (entry.url) {
-          const openBtn = document.createElement('button');
-          openBtn.type = 'button';
-          openBtn.textContent = 'Open';
-          openBtn.style.background = '#111';
-          openBtn.style.color = '#fff';
-          openBtn.style.border = '1px solid rgba(255,255,255,0.14)';
-          openBtn.style.borderRadius = '6px';
-          openBtn.style.padding = '4px 8px';
-          openBtn.style.cursor = 'pointer';
-          openBtn.addEventListener('click', () => { location.href = entry.url; });
-          footer.appendChild(openBtn);
-        }
-
-        card.appendChild(footer);
-        historyWrap.appendChild(card);
-      });
-
-      debugPanelEl.appendChild(historyWrap);
-    }
   }
 
   function apiFetch(url) {
