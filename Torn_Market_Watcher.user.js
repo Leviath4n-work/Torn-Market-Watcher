@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TornPDA Universal Market Watcher
-// @namespace    leviath4n.torn.marketwatch.v6.5.0
-// @version      6.5.0
+// @namespace    leviath4n.torn.marketwatch.v6.5.1
+// @version      6.5.1
 // @description  Multi-item Torn market watcher with server-gated membership, stored user API scanning, watchlists, debug menu, tiers, sound, vibration, persistent popups, and armor/quality filters
 // @author       Leviath4n
 
@@ -2628,7 +2628,7 @@ function soundForTier(tier) {
       topBar.style.gap = '8px';
 
       const title = document.createElement('div');
-      title.textContent = 'Watcher Debug';
+      title.textContent = 'Watcher Debug | v6.5.1';
       title.style.fontWeight = '700';
 
       const btn = document.createElement('button');
@@ -2679,7 +2679,7 @@ function soundForTier(tier) {
     topBar.style.paddingRight = '4px';
 
     const title = document.createElement('div');
-    title.textContent = 'Watcher Debug';
+    title.textContent = 'Watcher Debug | v6.5.1';
     title.style.fontWeight = '700';
 
     const topBtns = document.createElement('div');
