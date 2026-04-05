@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TornPDA Universal Market Watcher
-// @namespace    leviath4n.torn.marketwatch.v6.3.2
-// @version      6.3.2
+// @namespace    leviath4n.torn.marketwatch.v6.4.2
+// @version      6.4.2
 // @description  Multi-item Torn market watcher with server-gated membership, stored user API scanning, watchlists, debug menu, tiers, sound, vibration, persistent popups, and armor/quality filters
 // @author       Leviath4n
 
@@ -49,6 +49,7 @@
     soundEnabled: false,
     soundVolume: 100,
     soundPreset: 'classic'
+    desktopNotificationsEnabled: false
   };
 
   const VALUE_REFRESH_MS = 24 * 60 * 60 * 1000;
@@ -1675,6 +1676,9 @@ function getSettings() {
     soundEnabled: typeof stored.soundEnabled === 'boolean' ? stored.soundEnabled : DEFAULTS.soundEnabled,
     soundVolume: Number.isFinite(Number(stored.soundVolume)) ? Number(stored.soundVolume) : DEFAULTS.soundVolume,
     soundPreset: typeof stored.soundPreset === 'string' ? stored.soundPreset : DEFAULTS.soundPreset
+    desktopNotificationsEnabled: typeof stored.desktopNotificationsEnabled === 'boolean'
+      ? stored.desktopNotificationsEnabled
+      : DEFAULTS.desktopNotificationsEnabled
   };
 }
 
@@ -1929,6 +1933,50 @@ function getSettings() {
     } catch {}
   }
 
+function canUseDesktopNotifications() {
+  return typeof Notification !== 'undefined';
+}
+
+async function requestDesktopNotificationPermission() {
+  if (!canUseDesktopNotifications()) return 'unsupported';
+
+  try {
+    return await Notification.requestPermission();
+  } catch {
+    return 'denied';
+  }
+}
+
+function showDesktopNotification(title, body, url) {
+  const settings = getSettings();
+  if (!settings.desktopNotificationsEnabled) return;
+  if (!canUseDesktopNotifications()) return;
+  if (Notification.permission !== 'granted') return;
+
+  try {
+    const n = new Notification(title, {
+      body,
+      icon: 'https://www.torn.com/favicon.ico',
+      tag: 'umw-market-alert',
+      requireInteraction: false
+    });
+
+    n.onclick = () => {
+      try {
+        window.focus();
+        if (url) window.open(url, '_blank');
+      } catch {}
+      try { n.close(); } catch {}
+    };
+
+    setTimeout(() => {
+      try { n.close(); } catch {}
+    }, 10000);
+  } catch (err) {
+    console.error('[UMW] Desktop notification failed:', err);
+  }
+}
+
   function unlockAudioContext() {
     if (audioCtx) return;
     try {
@@ -2112,6 +2160,7 @@ function soundForTier(tier) {
 
     vibrateForTier(tier);
     soundForTier(tier);
+    showDesktopNotification(title, text, null);
   }
 
   function ensureDebugPanel() {
@@ -2860,6 +2909,14 @@ function soundForTier(tier) {
       })
     );
 
+    debugPanelEl.appendChild(
+  makeToggleRow('Desktop notifications', settings.desktopNotificationsEnabled, () => {
+    const next = getSettings();
+    next.desktopNotificationsEnabled = !next.desktopNotificationsEnabled;
+    saveSettings(next);
+  })
+);
+
 const soundVolumeRow = document.createElement('div');
 soundVolumeRow.style.display = 'flex';
 soundVolumeRow.style.alignItems = 'center';
@@ -2959,6 +3016,37 @@ soundTestBtn.addEventListener('click', () => {
 
 soundTestRow.appendChild(soundTestBtn);
 debugPanelEl.appendChild(soundTestRow);
+
+    const notifRow = document.createElement('div');
+notifRow.style.display = 'flex';
+notifRow.style.justifyContent = 'space-between';
+notifRow.style.alignItems = 'center';
+notifRow.style.gap = '8px';
+notifRow.style.marginBottom = '8px';
+
+const notifLabel = document.createElement('span');
+notifLabel.textContent = `Notification permission: ${
+  canUseDesktopNotifications() ? Notification.permission : 'unsupported'
+}`;
+
+const notifBtn = document.createElement('button');
+notifBtn.type = 'button';
+notifBtn.textContent = 'Enable notifications';
+notifBtn.style.background = '#111';
+notifBtn.style.color = '#fff';
+notifBtn.style.border = '1px solid rgba(255,255,255,0.14)';
+notifBtn.style.borderRadius = '6px';
+notifBtn.style.padding = '4px 8px';
+notifBtn.style.cursor = 'pointer';
+
+notifBtn.addEventListener('click', async () => {
+  const result = await requestDesktopNotificationPermission();
+  notifLabel.textContent = `Notification permission: ${result}`;
+});
+
+notifRow.appendChild(notifLabel);
+notifRow.appendChild(notifBtn);
+debugPanelEl.appendChild(notifRow);
     
     addDivider(debugPanelEl);
     addSectionTitle(debugPanelEl, 'Add item');
@@ -3644,26 +3732,27 @@ debugPanelEl.appendChild(soundTestRow);
   }
 
   function notifyWatchItemHit(match, marketValues) {
-    const { itemRule } = match;
-    const formatted = formatMatchText(match, marketValues);
-    const url = buildMarketUrl(itemRule.itemId);
+  const { itemRule } = match;
+  const formatted = formatMatchText(match, marketValues);
+  const url = buildMarketUrl(itemRule.itemId);
 
-    addPopupHistoryEntry({
-      itemId: itemRule.itemId,
-      itemName: itemRule.displayName,
-      text: formatted.text,
-      tier: formatted.tier,
-      fingerprint: match.fingerprint || '',
-      url
-    });
+  addPopupHistoryEntry({
+    itemId: itemRule.itemId,
+    itemName: itemRule.displayName,
+    text: formatted.text,
+    tier: formatted.tier,
+    fingerprint: match.fingerprint || '',
+    url
+  });
 
-    showToast(itemRule.displayName, formatted.text, formatted.tier, () => {
-      location.href = url;
-    });
+  showToast(itemRule.displayName, formatted.text, formatted.tier, () => {
+    location.href = url;
+  });
 
-    setLastAlert(`${itemRule.displayName} | ${formatted.text}`);
-  }
+  showDesktopNotification(itemRule.displayName, formatted.text, url);
 
+  setLastAlert(`${itemRule.displayName} | ${formatted.text}`);
+}
   function getLeaderInfo() {
     return {
       id: localStorage.getItem(LOCK_KEY) || '',
