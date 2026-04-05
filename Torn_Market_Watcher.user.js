@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TornPDA Universal Market Watcher
-// @namespace    leviath4n.torn.marketwatch.v6.5.2
-// @version      6.5.2
+// @namespace    leviath4n.torn.marketwatch.v6.5.3
+// @version      6.5.3
 // @description  Multi-item Torn market watcher with server-gated membership, stored user API scanning, watchlists, debug menu, tiers, sound, vibration, persistent popups, and armor/quality filters
 // @author       Leviath4n
 
@@ -85,6 +85,7 @@
     lastScanAt: 'umw_lastScanAt_v56',
     velocity: 'umw_velocity_v57',
     debugPanelPos: 'umw_debugPanelPos_v57',
+    debugPanelSize: 'umw_debugPanelSize_v653',
     scanStatus: 'umw_scanStatus_v591',
     popupHistory: 'umw_popupHistory_v5100',
     debugSections: 'umw_debugSections_v650',
@@ -1571,17 +1572,26 @@ function clearPopupHistory() {
   function setEnabled(value) {
   localStorage.setItem(STORAGE_KEYS.enabled, value ? 'true' : 'false');
 
-  // 🧹 Stop membership refresh when disabled
+  // Stop membership refresh when disabled
   if (!value && membershipRefreshTimer) {
     clearInterval(membershipRefreshTimer);
     membershipRefreshTimer = null;
   }
 
-  // ▶️ Restart it when enabled
+  // Restart it when enabled
   if (value && !membershipRefreshTimer) {
     startMembershipRefreshLoop();
   }
 }
+
+  function setWatcherEnabledState(value) {
+    const next = !!value;
+    setEnabled(next);
+    if (!next) clearToasts();
+    updateBadge();
+    refreshDebugPanel(true);
+    if (next && isLeader && isMembershipActive()) runLoop();
+  }
 
   function isDebugVisible() {
     return localStorage.getItem(STORAGE_KEYS.debugVisible) === 'true';
@@ -1606,6 +1616,30 @@ function clearPopupHistory() {
 
   function saveDebugPanelPos(pos) {
     setJson(STORAGE_KEYS.debugPanelPos, pos);
+  }
+
+  function getDebugPanelSize() {
+    return getJson(STORAGE_KEYS.debugPanelSize, null);
+  }
+
+  function saveDebugPanelSize(size) {
+    if (!size) return;
+    setJson(STORAGE_KEYS.debugPanelSize, {
+      width: Math.max(330, Math.floor(Number(size.width) || 330)),
+      height: Math.max(180, Math.floor(Number(size.height) || 180))
+    });
+  }
+
+  function applyDebugPanelSize(size) {
+    if (!debugPanelEl || !size) return;
+
+    const width = Math.max(330, Math.floor(Number(size.width) || 330));
+    const height = Math.max(180, Math.floor(Number(size.height) || 180));
+
+    debugPanelEl.style.width = `${Math.min(width, window.innerWidth - 20)}px`;
+    debugPanelEl.style.height = `${Math.min(height, window.innerHeight - 20)}px`;
+    debugPanelEl.style.maxWidth = 'calc(100vw - 20px)';
+    debugPanelEl.style.maxHeight = 'calc(100vh - 20px)';
   }
 
   function clampDebugPanelPos(left, top) {
@@ -1798,12 +1832,7 @@ function getSettings() {
 
     const handleBadgeClick = () => {
       unlockAudioContext();
-      const next = !isEnabled();
-      setEnabled(next);
-      if (!next) clearToasts();
-      updateBadge();
-      refreshDebugPanel();
-      if (next && isLeader && isMembershipActive()) runLoop();
+      setWatcherEnabledState(!isEnabled());
     };
 
     const handleDebugToggle = (e) => {
@@ -2242,7 +2271,10 @@ function soundForTier(tier) {
     debugPanelEl.style.transform = 'translate(-50%, -50%)';
     debugPanelEl.style.zIndex = '999998';
     debugPanelEl.style.width = '330px';
-    debugPanelEl.style.maxWidth = 'calc(100vw - 30px)';
+    debugPanelEl.style.height = 'min(75vh, 760px)';
+    debugPanelEl.style.minWidth = '330px';
+    debugPanelEl.style.minHeight = '180px';
+    debugPanelEl.style.maxWidth = 'calc(100vw - 20px)';
     debugPanelEl.style.background = 'rgba(10,10,10,0.96)';
     debugPanelEl.style.color = '#fff';
     debugPanelEl.style.border = '1px solid rgba(255,255,255,0.12)';
@@ -2253,10 +2285,24 @@ function soundForTier(tier) {
     debugPanelEl.style.boxShadow = '0 4px 18px rgba(0,0,0,0.35)';
     debugPanelEl.style.whiteSpace = 'normal';
     debugPanelEl.style.fontFamily = 'system-ui, sans-serif';
-    debugPanelEl.style.maxHeight = '75vh';
-    debugPanelEl.style.overflowY = 'auto';
+    debugPanelEl.style.maxHeight = 'calc(100vh - 20px)';
+    debugPanelEl.style.overflow = 'auto';
+    debugPanelEl.style.resize = 'both';
+    debugPanelEl.style.boxSizing = 'border-box';
+
+    debugPanelEl.addEventListener('mouseup', () => {
+      saveDebugPanelSize({
+        width: debugPanelEl.offsetWidth,
+        height: debugPanelEl.offsetHeight
+      });
+    });
 
     (document.body || document.documentElement).appendChild(debugPanelEl);
+
+    const savedSize = getDebugPanelSize();
+    if (savedSize) {
+      applyDebugPanelSize(savedSize);
+    }
 
     const savedPos = getDebugPanelPos();
     if (savedPos) {
@@ -2274,6 +2320,25 @@ function soundForTier(tier) {
       refreshDebugPanel(true);
     }
   }
+
+  window.addEventListener('resize', () => {
+    if (!debugPanelEl || !document.body.contains(debugPanelEl)) return;
+
+    applyDebugPanelSize({
+      width: debugPanelEl.offsetWidth,
+      height: debugPanelEl.offsetHeight
+    });
+
+    const left = parseFloat(debugPanelEl.style.left);
+    const top = parseFloat(debugPanelEl.style.top);
+
+    if (Number.isFinite(left) && Number.isFinite(top)) {
+      const clamped = clampDebugPanelPos(left, top);
+      debugPanelEl.style.left = `${clamped.left}px`;
+      debugPanelEl.style.top = `${clamped.top}px`;
+      saveDebugPanelPos(clamped);
+    }
+  });
 
   function makeToggleRow(labelText, checked, onChange) {
     const row = document.createElement('label');
@@ -2694,9 +2759,14 @@ function soundForTier(tier) {
       topBar.style.alignItems = 'center';
       topBar.style.justifyContent = 'space-between';
       topBar.style.gap = '8px';
+      topBar.style.position = 'sticky';
+      topBar.style.top = '0';
+      topBar.style.zIndex = '3';
+      topBar.style.background = 'rgba(10,10,10,0.98)';
+      topBar.style.paddingBottom = '6px';
 
       const title = document.createElement('div');
-      title.textContent = 'Watcher Debug | v6.5.2';
+      title.textContent = 'Watcher Debug | v6.5.3';
       title.style.fontWeight = '700';
 
       const btn = document.createElement('button');
@@ -2745,9 +2815,14 @@ function soundForTier(tier) {
     topBar.style.gap = '8px';
     topBar.style.marginBottom = '8px';
     topBar.style.paddingRight = '4px';
+    topBar.style.position = 'sticky';
+    topBar.style.top = '0';
+    topBar.style.zIndex = '3';
+    topBar.style.background = 'rgba(10,10,10,0.98)';
+    topBar.style.paddingBottom = '6px';
 
     const title = document.createElement('div');
-    title.textContent = 'Watcher Debug | v6.5.2';
+    title.textContent = 'Watcher Debug | v6.5.3';
     title.style.fontWeight = '700';
 
     const topBtns = document.createElement('div');
@@ -2980,6 +3055,20 @@ function soundForTier(tier) {
     });
 
     appendDebugSection(debugPanelEl, 'global_settings', 'Global settings', (section) => {
+      section.appendChild(
+        makeToggleRow('Watcher enabled', isEnabled(), () => {
+          unlockAudioContext();
+          setWatcherEnabledState(!isEnabled());
+        })
+      );
+
+      const resizeHint = document.createElement('div');
+      resizeHint.style.fontSize = '10px';
+      resizeHint.style.opacity = '0.75';
+      resizeHint.style.marginBottom = '8px';
+      resizeHint.textContent = 'Tip: drag the bottom-right corner of this panel to resize it.';
+      section.appendChild(resizeHint);
+
       const apiEstimateNote = document.createElement('div');
       apiEstimateNote.style.fontSize = '10px';
       apiEstimateNote.style.opacity = '0.75';
