@@ -1,6 +1,6 @@
 // ==UserScript==
-// @updateURL   https://raw.githubusercontent.com/Leviath4n-work/Torn-Market-Watcher/main/Torn_Market_Watcher_v6_2_0
-// @downloadURL https://raw.githubusercontent.com/Leviath4n-work/Torn-Market-Watcher/main/Torn_Market_Watcher_v6_2_0
+// @updateURL   https://raw.githubusercontent.com/Leviath4n-work/Torn-Market-Watcher/main/Torn_Market_Watcher_v6_2_0.user.js
+// @downloadURL https://raw.githubusercontent.com/Leviath4n-work/Torn-Market-Watcher/main/Torn_Market_Watcher_v6_2_0.user.js
 // @name         TornPDA Universal Market Watcher
 // @namespace    leviath4n.torn.marketwatch.v6.2
 // @version      6.2.0
