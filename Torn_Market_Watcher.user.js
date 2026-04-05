@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TornPDA Universal Market Watcher
-// @namespace    leviath4n.torn.marketwatch.v6.3.1
-// @version      6.3.1
+// @namespace    leviath4n.torn.marketwatch.v6.3.2
+// @version      6.3.2
 // @description  Multi-item Torn market watcher with server-gated membership, stored user API scanning, watchlists, debug menu, tiers, sound, vibration, persistent popups, and armor/quality filters
 // @author       Leviath4n
 
@@ -2930,6 +2930,35 @@ soundPresetSelect.addEventListener('change', () => {
 soundPresetRow.appendChild(soundPresetLabel);
 soundPresetRow.appendChild(soundPresetSelect);
 debugPanelEl.appendChild(soundPresetRow);
+
+const soundTestRow = document.createElement('div');
+soundTestRow.style.display = 'flex';
+soundTestRow.style.justifyContent = 'flex-end';
+soundTestRow.style.marginBottom = '8px';
+
+const soundTestBtn = document.createElement('button');
+soundTestBtn.type = 'button';
+soundTestBtn.textContent = 'Test sound';
+soundTestBtn.style.background = '#111';
+soundTestBtn.style.color = '#fff';
+soundTestBtn.style.border = '1px solid rgba(255,255,255,0.14)';
+soundTestBtn.style.borderRadius = '6px';
+soundTestBtn.style.padding = '4px 8px';
+soundTestBtn.style.cursor = 'pointer';
+
+soundTestBtn.addEventListener('click', () => {
+  unlockAudioContext();
+  soundForTier('insane');
+
+  const oldText = soundTestBtn.textContent;
+  soundTestBtn.textContent = 'Played';
+  setTimeout(() => {
+    soundTestBtn.textContent = oldText;
+  }, 800);
+});
+
+soundTestRow.appendChild(soundTestBtn);
+debugPanelEl.appendChild(soundTestRow);
     
     addDivider(debugPanelEl);
     addSectionTitle(debugPanelEl, 'Add item');
