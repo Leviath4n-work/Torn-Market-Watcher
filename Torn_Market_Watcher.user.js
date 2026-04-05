@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TornPDA Universal Market Watcher
-// @namespace    leviath4n.torn.marketwatch.v6.2.1
-// @version      6.2.1
+// @namespace    leviath4n.torn.marketwatch.v6.3.1
+// @version      6.3.1
 // @description  Multi-item Torn market watcher with server-gated membership, stored user API scanning, watchlists, debug menu, tiers, sound, vibration, persistent popups, and armor/quality filters
 // @author       Leviath4n
 
@@ -46,7 +46,9 @@
     pollMs: 30000,
     alertCooldownMs: 2 * 60 * 1000,
     vibrationEnabled: true,
-    soundEnabled: false
+    soundEnabled: false,
+    soundVolume: 100,
+    soundPreset: 'classic'
   };
 
   const VALUE_REFRESH_MS = 24 * 60 * 60 * 1000;
@@ -1664,15 +1666,17 @@ function clearPopupHistory() {
     };
   }
 
-  function getSettings() {
-    const stored = getJson(STORAGE_KEYS.settings, {});
-    return {
-      pollMs: Number.isFinite(Number(stored.pollMs)) ? Number(stored.pollMs) : DEFAULTS.pollMs,
-      alertCooldownMs: Number.isFinite(Number(stored.alertCooldownMs)) ? Number(stored.alertCooldownMs) : DEFAULTS.alertCooldownMs,
-      vibrationEnabled: typeof stored.vibrationEnabled === 'boolean' ? stored.vibrationEnabled : DEFAULTS.vibrationEnabled,
-      soundEnabled: typeof stored.soundEnabled === 'boolean' ? stored.soundEnabled : DEFAULTS.soundEnabled
-    };
-  }
+function getSettings() {
+  const stored = getJson(STORAGE_KEYS.settings, {});
+  return {
+    pollMs: Number.isFinite(Number(stored.pollMs)) ? Number(stored.pollMs) : DEFAULTS.pollMs,
+    alertCooldownMs: Number.isFinite(Number(stored.alertCooldownMs)) ? Number(stored.alertCooldownMs) : DEFAULTS.alertCooldownMs,
+    vibrationEnabled: typeof stored.vibrationEnabled === 'boolean' ? stored.vibrationEnabled : DEFAULTS.vibrationEnabled,
+    soundEnabled: typeof stored.soundEnabled === 'boolean' ? stored.soundEnabled : DEFAULTS.soundEnabled,
+    soundVolume: Number.isFinite(Number(stored.soundVolume)) ? Number(stored.soundVolume) : DEFAULTS.soundVolume,
+    soundPreset: typeof stored.soundPreset === 'string' ? stored.soundPreset : DEFAULTS.soundPreset
+  };
+}
 
   function saveSettings(settings) {
     setJson(STORAGE_KEYS.settings, settings);
@@ -1934,53 +1938,96 @@ function clearPopupHistory() {
     } catch {}
   }
 
-  function beep(freq, duration, volume = 0.03) {
-    if (!audioCtx) return;
-    try {
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume().catch(() => {});
-      }
+function beep(freq, duration, volume = 0.03, type = 'sine') {
+  if (!audioCtx) return;
 
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
+  try {
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume().catch(() => {});
+    }
 
-      osc.type = 'sine';
-      osc.frequency.value = freq;
-      gain.gain.value = volume;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
 
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
+    const safeVolume = Math.max(0, Math.min(3, Number(volume) || 0.03));
 
-      const start = audioCtx.currentTime;
-      const end = start + duration;
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.value = safeVolume;
 
-      gain.gain.setValueAtTime(volume, start);
-      gain.gain.exponentialRampToValueAtTime(0.0001, end);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
 
-      osc.start(start);
-      osc.stop(end);
-    } catch {}
+    const start = audioCtx.currentTime;
+    const end = start + duration;
+
+    gain.gain.setValueAtTime(safeVolume, start);
+    gain.gain.exponentialRampToValueAtTime(0.0001, end);
+
+    osc.start(start);
+    osc.stop(end);
+  } catch {}
+}
+
+function playClassicTierSound(tier, volumeMul) {
+  if (tier === 'insane') {
+    beep(880, 0.10, 0.04 * volumeMul, 'sine');
+    setTimeout(() => beep(1175, 0.12, 0.04 * volumeMul, 'sine'), 120);
+  } else if (tier === 'strong') {
+    beep(740, 0.11, 0.035 * volumeMul, 'sine');
+  } else {
+    beep(620, 0.08, 0.03 * volumeMul, 'sine');
   }
+}
 
-  function soundForTier(tier) {
-    const settings = getSettings();
-    if (!settings.soundEnabled) return;
-
-    unlockAudioContext();
-    if (!audioCtx) return;
-
-    try {
-      if (tier === 'insane') {
-        beep(880, 0.10, 0.04);
-        setTimeout(() => beep(1175, 0.12, 0.04), 120);
-      } else if (tier === 'strong') {
-        beep(740, 0.11, 0.035);
-      } else {
-        beep(620, 0.08, 0.03);
-      }
-    } catch {}
+function playArcadeTierSound(tier, volumeMul) {
+  if (tier === 'insane') {
+    beep(720, 0.08, 0.05 * volumeMul, 'square');
+    setTimeout(() => beep(960, 0.08, 0.05 * volumeMul, 'square'), 90);
+    setTimeout(() => beep(1240, 0.12, 0.055 * volumeMul, 'square'), 180);
+  } else if (tier === 'strong') {
+    beep(700, 0.07, 0.045 * volumeMul, 'triangle');
+    setTimeout(() => beep(920, 0.09, 0.045 * volumeMul, 'triangle'), 80);
+  } else {
+    beep(650, 0.07, 0.04 * volumeMul, 'triangle');
   }
+}
 
+function playAlarmTierSound(tier, volumeMul) {
+  if (tier === 'insane') {
+    beep(980, 0.14, 0.06 * volumeMul, 'sawtooth');
+    setTimeout(() => beep(980, 0.14, 0.06 * volumeMul, 'sawtooth'), 170);
+  } else if (tier === 'strong') {
+    beep(820, 0.12, 0.05 * volumeMul, 'sawtooth');
+  } else {
+    beep(700, 0.10, 0.04 * volumeMul, 'sawtooth');
+  }
+}
+
+function soundForTier(tier) {
+  const settings = getSettings();
+  if (!settings.soundEnabled) return;
+
+  unlockAudioContext();
+  if (!audioCtx) return;
+
+  try {
+    const volumeMul = Math.max(0, Math.min(3, (Number(settings.soundVolume) || 100) / 100));
+    const preset = String(settings.soundPreset || 'classic');
+
+    if (preset === 'arcade') {
+      playArcadeTierSound(tier, volumeMul);
+      return;
+    }
+
+    if (preset === 'alarm') {
+      playAlarmTierSound(tier, volumeMul);
+      return;
+    }
+
+    playClassicTierSound(tier, volumeMul);
+  } catch {}
+}
   function showToast(title, text, tier, onOpen) {
     if (!isEnabled()) return;
 
@@ -2813,6 +2860,77 @@ function clearPopupHistory() {
       })
     );
 
+const soundVolumeRow = document.createElement('div');
+soundVolumeRow.style.display = 'flex';
+soundVolumeRow.style.alignItems = 'center';
+soundVolumeRow.style.justifyContent = 'space-between';
+soundVolumeRow.style.gap = '8px';
+soundVolumeRow.style.marginBottom = '6px';
+
+const soundVolumeLabel = document.createElement('span');
+soundVolumeLabel.textContent = `Sound volume (${settings.soundVolume}%)`;
+
+const soundVolumeInput = document.createElement('input');
+soundVolumeInput.type = 'range';
+soundVolumeInput.min = '0';
+soundVolumeInput.max = '300';
+soundVolumeInput.step = '5';
+soundVolumeInput.value = String(settings.soundVolume);
+soundVolumeInput.style.width = '140px';
+
+soundVolumeInput.addEventListener('input', () => {
+  soundVolumeLabel.textContent = `Sound volume (${soundVolumeInput.value}%)`;
+});
+
+soundVolumeInput.addEventListener('change', () => {
+  const next = getSettings();
+  next.soundVolume = Math.max(0, Math.min(300, Number(soundVolumeInput.value) || DEFAULTS.soundVolume));
+  saveSettings(next);
+});
+
+soundVolumeRow.appendChild(soundVolumeLabel);
+soundVolumeRow.appendChild(soundVolumeInput);
+debugPanelEl.appendChild(soundVolumeRow);
+
+const soundPresetRow = document.createElement('div');
+soundPresetRow.style.display = 'flex';
+soundPresetRow.style.alignItems = 'center';
+soundPresetRow.style.justifyContent = 'space-between';
+soundPresetRow.style.gap = '8px';
+soundPresetRow.style.marginBottom = '6px';
+
+const soundPresetLabel = document.createElement('span');
+soundPresetLabel.textContent = 'Sound preset';
+
+const soundPresetSelect = document.createElement('select');
+soundPresetSelect.style.background = '#111';
+soundPresetSelect.style.color = '#fff';
+soundPresetSelect.style.border = '1px solid rgba(255,255,255,0.14)';
+soundPresetSelect.style.borderRadius = '6px';
+soundPresetSelect.style.padding = '4px 6px';
+
+[
+  ['classic', 'Classic'],
+  ['arcade', 'Arcade'],
+  ['alarm', 'Alarm']
+].forEach(([value, label]) => {
+  const option = document.createElement('option');
+  option.value = value;
+  option.textContent = label;
+  if (settings.soundPreset === value) option.selected = true;
+  soundPresetSelect.appendChild(option);
+});
+
+soundPresetSelect.addEventListener('change', () => {
+  const next = getSettings();
+  next.soundPreset = soundPresetSelect.value;
+  saveSettings(next);
+});
+
+soundPresetRow.appendChild(soundPresetLabel);
+soundPresetRow.appendChild(soundPresetSelect);
+debugPanelEl.appendChild(soundPresetRow);
+    
     addDivider(debugPanelEl);
     addSectionTitle(debugPanelEl, 'Add item');
 
