@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TornPDA Universal Market Watcher
-// @namespace    leviath4n.torn.marketwatch.v6.5.3
-// @version      6.5.3
+// @namespace    leviath4n.torn.marketwatch.v6.5.4
+// @version      6.5.4
 // @description  Multi-item Torn market watcher with server-gated membership, stored user API scanning, watchlists, debug menu, tiers, sound, vibration, persistent popups, and armor/quality filters
 // @author       Leviath4n
 
@@ -2489,8 +2489,11 @@ function soundForTier(tier) {
     card.style.border = '1px solid rgba(255,255,255,0.10)';
     card.style.borderRadius = '10px';
     card.style.padding = '8px';
-    card.style.marginBottom = '8px';
+    card.style.marginBottom = '0';
     card.style.background = 'rgba(255,255,255,0.03)';
+    card.style.minWidth = '0';
+    card.style.height = '100%';
+    card.style.boxSizing = 'border-box';
 
     const top = document.createElement('div');
     top.style.display = 'flex';
@@ -2766,7 +2769,7 @@ function soundForTier(tier) {
       topBar.style.paddingBottom = '6px';
 
       const title = document.createElement('div');
-      title.textContent = 'Watcher Debug | v6.5.3';
+      title.textContent = 'Watcher Debug | v6.5.4';
       title.style.fontWeight = '700';
 
       const btn = document.createElement('button');
@@ -2822,7 +2825,7 @@ function soundForTier(tier) {
     topBar.style.paddingBottom = '6px';
 
     const title = document.createElement('div');
-    title.textContent = 'Watcher Debug | v6.5.3';
+    title.textContent = 'Watcher Debug | v6.5.4';
     title.style.fontWeight = '700';
 
     const topBtns = document.createElement('div');
@@ -3375,9 +3378,19 @@ function soundForTier(tier) {
         none.textContent = 'No watched items yet.';
         section.appendChild(none);
       } else {
+        const watchlistGrid = document.createElement('div');
+        watchlistGrid.style.display = 'grid';
+        watchlistGrid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(420px, 1fr))';
+        watchlistGrid.style.gap = '8px';
+        watchlistGrid.style.alignItems = 'start';
+        watchlistGrid.style.width = '100%';
+        watchlistGrid.style.boxSizing = 'border-box';
+
         watchlist.forEach((itemRule, index) => {
-          renderWatchItemCard(section, itemRule, index, marketValues, scanStatusMap);
+          renderWatchItemCard(watchlistGrid, itemRule, index, marketValues, scanStatusMap);
         });
+
+        section.appendChild(watchlistGrid);
       }
     });
 
