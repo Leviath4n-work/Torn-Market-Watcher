@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TornPDA Universal Market Watcher
-// @namespace    leviath4n.torn.marketwatch.v6.5.6
-// @version      6.5.6
+// @namespace    leviath4n.torn.marketwatch.v6.5.7
+// @version      6.5.7
 // @description  Multi-item Torn market watcher with server-gated membership, stored user API scanning, watchlists, debug menu, tiers, sound, vibration, persistent popups, and armor/quality filters
 // @author       Leviath4n
 
@@ -11,6 +11,7 @@
 // @match        https://www.torn.com/*
 // @run-at       document-idle
 // @grant        GM_xmlhttpRequest
+// @grant        GM_info
 // @connect      api.torn.com
 // @connect      torn.com
 // @connect      146.190.216.11
@@ -19,13 +20,18 @@
 (function () {
   'use strict';
 
-  const SCRIPT_VERSION = '6.5.5';
+  function getScriptVersion() {
+    try {
+      return (typeof GM_info !== 'undefined' && GM_info?.script?.version) ? GM_info.script.version : 'unknown';
+    } catch {
+      return 'unknown';
+    }
+  }
 
   /*
-    6.5.5 changes
-    - Compact watchlist cards so fields are less wide
-    - Responsive watchlist grid now fits more cards side by side
-    - Debug header version now reads from SCRIPT_VERSION
+    6.5.6 changes
+    - Debug header version now auto-reads from GM_info.script.version
+    - Added GM_info grant for Tampermonkey version access
   */
 
   console.log('[UMW] Script booting on', window.location.href);
@@ -2785,7 +2791,7 @@ function soundForTier(tier) {
       topBar.style.paddingBottom = '6px';
 
       const title = document.createElement('div');
-      title.textContent = `Watcher Debug | v${SCRIPT_VERSION}`;
+      title.textContent = `Watcher Debug | v${getScriptVersion()}`;
       title.style.fontWeight = '700';
 
       const btn = document.createElement('button');
@@ -2841,7 +2847,7 @@ function soundForTier(tier) {
     topBar.style.paddingBottom = '6px';
 
     const title = document.createElement('div');
-    title.textContent = `Watcher Debug | v${SCRIPT_VERSION}`;
+    title.textContent = `Watcher Debug | v${getScriptVersion()}`;
     title.style.fontWeight = '700';
 
     const topBtns = document.createElement('div');
