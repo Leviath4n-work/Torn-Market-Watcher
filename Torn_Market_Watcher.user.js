@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         TornPDA Universal Market Watcher
 // @namespace    leviath4n.torn.marketwatch.v6.2
-// @version      6.2.0
+// @version      6.2.1
 // @description  Multi-item Torn market watcher with server-gated membership, stored user API scanning, watchlists, debug menu, tiers, sound, vibration, persistent popups, and armor/quality filters
 // @author       Leviath4n
 
@@ -64,6 +64,9 @@
   const LOCK_HEARTBEAT_KEY = 'umw_active_heartbeat';
   const LOCK_TIMEOUT_MS = 45000;
   const HEARTBEAT_MS = 10000;
+  const MEMBERSHIP_REFRESH_MS = 5 * 60 * 1000; // 5 minutes
+  let membershipRefreshTimer = null;
+  let membershipRefreshInFlight = false;
 
   const STORAGE_KEYS = {
     enabled: 'umw_enabled_v56',
@@ -1247,7 +1250,29 @@ function isMembershipActive() {
       });
     }
   }
+  
+function startMembershipRefreshLoop() {
+  if (membershipRefreshTimer) return;
 
+  membershipRefreshTimer = setInterval(async () => {
+    if (membershipRefreshInFlight) return;
+
+    const playerId = getStoredPlayerId();
+    if (!playerId) return;
+
+    membershipRefreshInFlight = true;
+
+    try {
+      const status = await checkAuthStatus(playerId);
+      applyMembershipState(status);
+      console.log('[UMW] Membership refreshed');
+    } catch (err) {
+      console.error('[UMW] Membership refresh failed:', err);
+    } finally {
+      membershipRefreshInFlight = false;
+    }
+  }, MEMBERSHIP_REFRESH_MS);
+}
   function now() {
     return Date.now();
   }
@@ -1540,8 +1565,19 @@ function clearPopupHistory() {
   }
 
   function setEnabled(value) {
-    localStorage.setItem(STORAGE_KEYS.enabled, value ? 'true' : 'false');
+  localStorage.setItem(STORAGE_KEYS.enabled, value ? 'true' : 'false');
+
+  // 🧹 Stop membership refresh when disabled
+  if (!value && membershipRefreshTimer) {
+    clearInterval(membershipRefreshTimer);
+    membershipRefreshTimer = null;
   }
+
+  // ▶️ Restart it when enabled
+  if (value && !membershipRefreshTimer) {
+    startMembershipRefreshLoop();
+  }
+}
 
   function isDebugVisible() {
     return localStorage.getItem(STORAGE_KEYS.debugVisible) === 'true';
@@ -3614,6 +3650,7 @@ function clearPopupHistory() {
     rebuildDebugPanel();
 
     await ensureMembershipReady();
+    startMembershipRefreshLoop();
 
     setInterval(() => {
       try {
