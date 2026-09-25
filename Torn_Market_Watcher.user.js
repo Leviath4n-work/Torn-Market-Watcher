@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         TornPDA Universal Market Watcher
-// @namespace    leviath4n.torn.marketwatch.v6.7.2
+// @namespace    leviath4n.torn.marketwatch.v7.1.2
 // @version      7.1.2
 // @description  Market watcher with a mobile-first dashboard, inline filters, presets, alert history, and HTTP-compatible membership.
 // @author       Leviath4n
